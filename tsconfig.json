@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist",
+        "noImplicitAny": false,
+        "target": "es2017",
+        "allowJs": true,
+        "module": "es6",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "esModuleInterop": true
+    },
+    "include": ["./**/*"],
+    "exclude": ["dist/**/*"]
+}

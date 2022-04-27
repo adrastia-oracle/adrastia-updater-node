@@ -1,0 +1,10 @@
+# Secrets
+.env
+
+# IDEs
+.vscode
+
+# Generated files
+node_modules
+dist
+typechain
