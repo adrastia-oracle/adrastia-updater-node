@@ -1,15 +1,20 @@
 // Import dependencies available in the autotask environment
 import { DefenderRelayProvider, DefenderRelaySigner } from "defender-relay-client/lib/ethers";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 
 // Import typechain
 import { IERC165 } from "../../typechain";
-import { IAggregatedOracle, IHasLiquidityAccumulator, IHasPriceAccumulator } from "../../typechain/interfaces";
+import {
+    IAccumulator,
+    IAggregatedOracle,
+    IHasLiquidityAccumulator,
+    IHasPriceAccumulator,
+} from "../../typechain/interfaces";
 import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/accumulators";
 
 // Import ABIs
 import { abi as IERC165_ABI } from "@openzeppelin-v4/contracts/build/contracts/IERC165.json";
-import { abi as AGGREGATED_ORACLE_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IAggregatedOracle.sol/IAggregatedOracle.json";
+import { abi as AGGREGATED_ORACLE_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/oracles/AggregatedOracle.sol/AggregatedOracle.json";
 import { abi as PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/accumulators/PriceAccumulator.sol/PriceAccumulator.json";
 import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/accumulators/LiquidityAccumulator.sol/LiquidityAccumulator.json";
 import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
@@ -19,6 +24,7 @@ import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core
 import config from "../../pythia.config";
 import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
+import { AggregatedOracle } from "../../typechain/oracles";
 
 // Interface IDs
 const IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
@@ -166,6 +172,51 @@ async function getAccumulators(
     };
 }
 
+async function getAccumulatorUpdateThreshold(
+    store: KeyValueStoreClient,
+    accumulator: IAccumulator
+): Promise<BigNumber> {
+    console.log("Getting update threshold for accumulator: " + accumulator.address);
+
+    const updateThresholdStoreKey = accumulator.address + ".updateThreshold";
+    const updateThresholdFromStore = await store.get(updateThresholdStoreKey);
+
+    if (updateThresholdFromStore !== undefined && updateThresholdFromStore !== null) {
+        try {
+            const updateThreshold = BigNumber.from(updateThresholdFromStore);
+            console.log("Update threshold for accumulator from store: " + updateThreshold.toString());
+
+            return updateThreshold;
+        } catch (e) {}
+    }
+
+    const updateThreshold = await accumulator.updateThreshold();
+    console.log("Update threshold for accumulator: " + updateThreshold.toString());
+
+    await store.put(updateThresholdStoreKey, updateThreshold.toString());
+
+    return updateThreshold;
+}
+
+async function accumulatorNeedsCriticalUpdate(
+    store: KeyValueStoreClient,
+    accumulator: IAccumulator,
+    token: string
+): Promise<boolean> {
+    console.log("Checking if accumulator needs a critical update: " + accumulator.address);
+
+    const updateThreshold = await getAccumulatorUpdateThreshold(store, accumulator);
+    const criticalUpdateThreshold = updateThreshold.add(updateThreshold.div(2)); // updateThreshold * 1.5
+    console.log("Critical update threshold: " + criticalUpdateThreshold);
+
+    const criticalUpdateNeeded = await accumulator.changeThresholdSurpassed(token, criticalUpdateThreshold);
+    if (criticalUpdateNeeded) {
+        console.log("Critical update is needed");
+    }
+
+    return criticalUpdateNeeded;
+}
+
 async function handleLaUpdate(
     store: KeyValueStoreClient,
     signer: DefenderRelaySigner,
@@ -177,7 +228,9 @@ async function handleLaUpdate(
     if (await liquidityAccumulator.canUpdate(updateData)) {
         if (onlyCritical) {
             // Critical: changePercent >= updateThreshold * 1.5
-            // TODO
+            if (!(await accumulatorNeedsCriticalUpdate(store, liquidityAccumulator, token))) {
+                return;
+            }
         }
 
         console.log("Updating liquidity accumulator:", liquidityAccumulator.address);
@@ -210,7 +263,9 @@ async function handlePaUpdate(
     if (await priceAccumulator.canUpdate(updateData)) {
         if (onlyCritical) {
             // Critical: changePercent >= updateThreshold * 1.5
-            // TODO
+            if (!(await accumulatorNeedsCriticalUpdate(store, priceAccumulator, token))) {
+                return;
+            }
         }
 
         console.log("Updating price accumulator:", priceAccumulator.address);
@@ -226,18 +281,58 @@ async function handlePaUpdate(
     }
 }
 
-async function handleOracleUpdate(
+async function getOraclePeriod(store: KeyValueStoreClient, oracle: AggregatedOracle): Promise<number> {
+    console.log("Getting period for oracle: " + oracle.address);
+
+    const periodStoreKey = oracle.address + ".period";
+
+    const periodFromStore = await store.get(periodStoreKey);
+    if (periodFromStore !== undefined && periodFromStore !== null && !isNaN(parseInt(periodFromStore))) {
+        console.log("Period for oracle from store: " + parseInt(periodFromStore));
+
+        return parseInt(periodFromStore);
+    }
+
+    const period = await oracle.period();
+
+    console.log("Period for oracle: " + period);
+
+    await store.put(periodStoreKey, period.toNumber().toString());
+
+    return period.toNumber();
+}
+
+async function oracleNeedsCriticalUpdate(
     store: KeyValueStoreClient,
-    signer: DefenderRelaySigner,
-    oracle: IAggregatedOracle,
+    oracle: AggregatedOracle,
     token: string
-) {
+): Promise<boolean> {
+    console.log("Checking if oracle needs a critical update: " + oracle.address);
+
+    const period = await getOraclePeriod(store, oracle);
+
+    const updateData = ethers.utils.hexZeroPad(token, 32);
+
+    const timeSinceLastUpdate = await oracle.timeSinceLastUpdate(updateData);
+    console.log("Time since last update: " + timeSinceLastUpdate);
+
+    const criticalUpdateNeeded = timeSinceLastUpdate.gte(period * 1.5);
+    if (criticalUpdateNeeded) {
+        console.log("Critical update is needed");
+    }
+
+    return criticalUpdateNeeded;
+}
+
+async function handleOracleUpdate(store: KeyValueStoreClient, oracle: AggregatedOracle, token: string) {
     const updateData = ethers.utils.hexZeroPad(token, 32);
 
     if (await oracle.canUpdate(updateData)) {
         if (onlyCritical) {
-            // Critical: timestamp >= observation.timestamp + (period * 1.5)
-            // TODO
+            // Critical: block.timestamp >= observation.timestamp + (period * 1.5)
+            if (!(await oracleNeedsCriticalUpdate(store, oracle, token))) {
+                return;
+            }
         }
 
         console.log("Updating oracle:", oracle.address);
@@ -255,11 +350,11 @@ async function keepUpdated(
     oracleAddress: string,
     token: string
 ) {
-    const oracle: IAggregatedOracle = new ethers.Contract(
+    const oracle: AggregatedOracle = new ethers.Contract(
         oracleAddress,
         AGGREGATED_ORACLE_ABI,
         signer
-    ) as IAggregatedOracle;
+    ) as AggregatedOracle;
 
     const { las, pas } = await getAccumulators(store, signer, oracleAddress, token);
 
@@ -288,7 +383,7 @@ async function keepUpdated(
     console.log("Checking oracle for needed updates...");
 
     // Update oracle (if necessary)
-    await handleOracleUpdate(store, signer, oracle, token);
+    await handleOracleUpdate(store, oracle, token);
 }
 
 type OracleConfig = {
