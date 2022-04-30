@@ -26,6 +26,71 @@ import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 import { AggregatedOracle } from "../../typechain/oracles";
 
+import axios, { AxiosResponse } from "axios";
+import axiosRetry from "axios-retry";
+import { setupCache } from "axios-cache-adapter";
+
+// TODO: Track the items put into the store and use that to implement clear, length, and iterate
+class DefenderAxiosStore {
+    prefix: string;
+
+    constructor(prefix: string) {
+        this.prefix = prefix;
+    }
+
+    async getItem(key) {
+        const item = (await defenderStore.get(this.prefix + key)) || null;
+
+        return JSON.parse(item);
+    }
+
+    async setItem(key, value) {
+        await defenderStore.put(this.prefix + key, JSON.stringify(value));
+
+        return value;
+    }
+
+    async removeItem(key) {
+        await defenderStore.del(this.prefix + key);
+    }
+
+    async clear() {
+        // no-op
+    }
+
+    async length() {
+        return 0; // no-op
+    }
+
+    iterate(fn) {
+        // no-op
+    }
+}
+
+const axiosCache = setupCache({
+    maxAge: 30 * 1000, // 30 seconds
+    exclude: {
+        query: false, // Allow caching of requests with query params
+    },
+    // Attempt reading stale cache data when we're being rate limited
+    readOnError: (error, request) => {
+        return error.response.status == 429 /* back-off warning */ || error.response.status == 418 /* IP ban */;
+    },
+    // Deactivate `clearOnStale` option so that we can actually read stale cache data
+    clearOnStale: false,
+    store: new DefenderAxiosStore(""),
+});
+
+const axiosInstance = axios.create({
+    baseURL: "https://api.binance.com",
+    adapter: axiosCache.adapter,
+});
+
+axiosRetry(axiosInstance, {
+    retries: 3,
+    retryDelay: axiosRetry.exponentialDelay,
+});
+
 // Interface IDs
 const IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
 const IHASPRICEACCUMULATOR_INTERFACEID = "0x6b72d0ba";
@@ -35,6 +100,7 @@ const IAGGREGATEDORACLE_INTERFACEID = "0xce2362c4";
 var isLocal = false;
 var useGasLimit = 1000000;
 var onlyCritical = false;
+var defenderStore: KeyValueStoreClient;
 
 async function getAccumulators(
     store: KeyValueStoreClient,
@@ -252,27 +318,216 @@ async function handleLaUpdate(
     }
 }
 
+function calculateChange(a: BigNumber, b: BigNumber, changePrecision: BigNumber) {
+    // Ensure a is never smaller than b
+    if (a.lt(b)) {
+        var temp = a;
+        a = b;
+        b = temp;
+    }
+
+    // a >= b
+
+    if (a.eq(0)) {
+        // a == b == 0 (since a >= b), therefore no change
+        return {
+            change: BigNumber.from(0),
+            isInfinite: false,
+        };
+    } else if (b.eq(0)) {
+        // (a > 0 && b == 0) => change threshold passed
+        // Zero to non-zero always returns true
+        return {
+            change: BigNumber.from(0),
+            isInfinite: true,
+        };
+    }
+
+    const delta = a.sub(b); // a >= b, therefore no underflow
+    const preciseDelta = delta.mul(changePrecision);
+
+    // If the delta is so large that multiplying by CHANGE_PRECISION overflows, we assume that
+    // the change threshold has been surpassed.
+    // If our assumption is incorrect, the accumulator will be extra-up-to-date, which won't
+    // really break anything, but will cost more gas in keeping this accumulator updated.
+    if (preciseDelta.lt(delta))
+        return {
+            change: BigNumber.from(0),
+            isInfinite: true,
+        };
+
+    return {
+        change: preciseDelta.div(b),
+        isInfinite: false,
+    };
+}
+
+async function getAccumulatorQuoteTokenDecimals(
+    store: KeyValueStoreClient,
+    accumulator: PriceAccumulator
+): Promise<number> {
+    console.log("Getting quote token decimals for accumulator: " + accumulator.address);
+
+    const quoteTokenDecimalsStoreKey = accumulator.address + ".quoteTokenDecimals";
+    const quoteTokenDecimalsFromStore = await store.get(quoteTokenDecimalsStoreKey);
+
+    if (quoteTokenDecimalsFromStore !== undefined && quoteTokenDecimalsFromStore !== null) {
+        try {
+            const quoteTokenDecimals = parseInt(quoteTokenDecimalsFromStore);
+            console.log("Quote token decimals for accumulator from store: " + quoteTokenDecimals.toString());
+
+            return quoteTokenDecimals;
+        } catch (e) {}
+    }
+
+    const quoteTokenDecimals = await accumulator.quoteTokenDecimals();
+    console.log("Quote token decimals for accumulator: " + quoteTokenDecimals.toString());
+
+    await store.put(quoteTokenDecimalsStoreKey, quoteTokenDecimals.toString());
+
+    return quoteTokenDecimals;
+}
+
+async function getAccumulatorMaxUpdateDelay(
+    store: KeyValueStoreClient,
+    accumulator: PriceAccumulator
+): Promise<BigNumber> {
+    console.log("Getting max update delay for accumulator: " + accumulator.address);
+
+    const maxUpdateDelayStoreKey = accumulator.address + ".maxUpdateDelay";
+    const maxUpdateDelayFromStore = await store.get(maxUpdateDelayStoreKey);
+
+    if (maxUpdateDelayFromStore !== undefined && maxUpdateDelayFromStore !== null) {
+        try {
+            const maxUpdateDelay = BigNumber.from(maxUpdateDelayFromStore);
+            console.log("Max update delay for accumulator from store: " + maxUpdateDelay.toString());
+
+            return maxUpdateDelay;
+        } catch (e) {}
+    }
+
+    const maxUpdateDelay = await accumulator.maxUpdateDelay();
+    console.log("Max update delay for accumulator: " + maxUpdateDelay.toString());
+
+    await store.put(maxUpdateDelayStoreKey, maxUpdateDelay.toString());
+
+    return maxUpdateDelay;
+}
+
+async function validatePrice(
+    store: KeyValueStoreClient,
+    accumulator: PriceAccumulator,
+    accumulatorPrice: BigNumber,
+    token: TokenConfig
+) {
+    var validated = false;
+    var apiPrice = BigNumber.from(0);
+    var usePrice = accumulatorPrice;
+
+    console.log("Validating price for accumulator: " + accumulator.address);
+
+    const quoteTokenDecimals = await getAccumulatorQuoteTokenDecimals(store, accumulator);
+
+    const updateData = ethers.utils.hexZeroPad(token.address, 32);
+
+    await axiosInstance
+        .get("/api/v3/ticker/price", {
+            params: {
+                symbol: token.validation.symbol,
+            },
+        })
+        .then(async function (response: AxiosResponse) {
+            const rateLimitedButHasCache =
+                (response.status == 418 /* rate limit warning */ || response.status == 429) /* IP ban */ &&
+                response.request.fromCache === true;
+            if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
+                apiPrice = ethers.utils.parseUnits(response.data["price"], quoteTokenDecimals);
+
+                console.log(
+                    "API price" + (response.request.fromCache === true ? " (from cache)" : "") + " =",
+                    ethers.utils.formatUnits(apiPrice, quoteTokenDecimals)
+                );
+                console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
+
+                const diff = calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
+
+                console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
+
+                if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
+                    validated = true;
+
+                    // Use the average of the two prices for on-chain validation
+                    usePrice = apiPrice.add(accumulatorPrice).div(2);
+                }
+            }
+        });
+
+    if (!validated) {
+        const timeSinceLastUpdate = await accumulator.timeSinceLastUpdate(updateData);
+        const maxUpdateDelay = await getAccumulatorMaxUpdateDelay(store, accumulator);
+        if (timeSinceLastUpdate.gte(maxUpdateDelay)) {
+            // Hasn't been updated in over the max period,
+            // so we forcefully validate even though prices are different
+
+            console.log(
+                "Time since last update exceeds " +
+                    maxUpdateDelay.toString() +
+                    " seconds (" +
+                    timeSinceLastUpdate.toString() +
+                    "). Forcefully validating."
+            );
+
+            validated = true;
+            usePrice = accumulatorPrice;
+        }
+    }
+
+    if (!validated) {
+        console.log("Price validation failed (exceeds " + token.validation.allowedChangeBps + " bps)");
+    } else {
+        console.log(
+            "Validation succeeded. Using price of " +
+                ethers.utils.formatUnits(usePrice, quoteTokenDecimals) +
+                " for on-chain validation."
+        );
+    }
+
+    return {
+        validated: validated,
+        usePrice: usePrice,
+    };
+}
+
 async function handlePaUpdate(
     store: KeyValueStoreClient,
     signer: DefenderRelaySigner,
     priceAccumulator: PriceAccumulator,
-    token: string
+    token: TokenConfig
 ) {
-    const updateData = ethers.utils.hexZeroPad(token, 32);
+    const updateData = ethers.utils.hexZeroPad(token.address, 32);
 
     if (await priceAccumulator.canUpdate(updateData)) {
         if (onlyCritical) {
             // Critical: changePercent >= updateThreshold * 1.5
-            if (!(await accumulatorNeedsCriticalUpdate(store, priceAccumulator, token))) {
+            if (!(await accumulatorNeedsCriticalUpdate(store, priceAccumulator, token.address))) {
                 return;
             }
         }
 
         console.log("Updating price accumulator:", priceAccumulator.address);
 
-        const price = await priceAccumulator["consultPrice(address,uint256)"](token, 0);
+        var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
 
-        const paUpdateData = ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token, price]);
+        if (token.validation.enabled) {
+            const validation = await validatePrice(store, priceAccumulator, price, token);
+            if (!validation.validated) {
+                return;
+            }
+
+            price = validation.usePrice;
+        }
+
+        const paUpdateData = ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, price]);
 
         const updateTx = await priceAccumulator.update(paUpdateData, {
             gasLimit: useGasLimit,
@@ -348,7 +603,7 @@ async function keepUpdated(
     store: KeyValueStoreClient,
     signer: DefenderRelaySigner,
     oracleAddress: string,
-    token: string
+    token: TokenConfig
 ) {
     const oracle: AggregatedOracle = new ethers.Contract(
         oracleAddress,
@@ -356,14 +611,14 @@ async function keepUpdated(
         signer
     ) as AggregatedOracle;
 
-    const { las, pas } = await getAccumulators(store, signer, oracleAddress, token);
+    const { las, pas } = await getAccumulators(store, signer, oracleAddress, token.address);
 
     console.log("Checking liquidity accumulators for needed updates...");
 
     // Update all liquidity accumulators (if necessary)
     for (const liquidityAccumulator of las) {
         try {
-            await handleLaUpdate(store, signer, liquidityAccumulator, token);
+            await handleLaUpdate(store, signer, liquidityAccumulator, token.address);
         } catch (e) {
             console.error(e);
         }
@@ -383,13 +638,22 @@ async function keepUpdated(
     console.log("Checking oracle for needed updates...");
 
     // Update oracle (if necessary)
-    await handleOracleUpdate(store, oracle, token);
+    await handleOracleUpdate(store, oracle, token.address);
 }
+
+type TokenConfig = {
+    address: string;
+    validation: {
+        enabled: boolean;
+        symbol: string;
+        allowedChangeBps: number;
+    };
+};
 
 type OracleConfig = {
     enabled: boolean;
     address: string;
-    tokens: string[];
+    tokens: TokenConfig[];
 };
 
 // Entrypoint for the Autotask
@@ -416,11 +680,13 @@ export async function handler(event) {
         store = new KeyValueStoreClient(event);
     }
 
+    defenderStore = store;
+
     for (const oracleConfig of oraclesConfigs) {
         if (!oracleConfig.enabled) continue;
 
         for (const token of oracleConfig.tokens) {
-            console.log("Updating all components for oracle =", oracleConfig.address, ", token =", token);
+            console.log("Updating all components for oracle =", oracleConfig.address, ", token =", token.address);
 
             await keepUpdated(store, signer, oracleConfig.address, token);
         }

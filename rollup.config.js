@@ -6,5 +6,12 @@ import builtins from "builtin-modules";
 
 export default {
     plugins: [resolve({ preferBuiltins: true }), commonjs(), json({ compact: true }), typescript()],
-    external: [...builtins, "ethers", /^defender-relay-client(\/.*)?$/, /^defender-kvstore-client(\/.*)?$/],
+    external: [
+        ...builtins,
+        "ethers",
+        "axios",
+        "axios-retry",
+        /^defender-relay-client(\/.*)?$/,
+        /^defender-kvstore-client(\/.*)?$/,
+    ],
 };
