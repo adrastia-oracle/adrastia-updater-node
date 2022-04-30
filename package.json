@@ -13,7 +13,7 @@
         "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@pythia-oracle/pythia-core/artifacts/**/*.json --out-dir=./typechain && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain "
     },
     "dependencies": {
-        "@pythia-oracle/pythia-core": "1.0.0-rc.7",
+        "@pythia-oracle/pythia-core": "1.0.0-rc.8",
         "defender-kvstore-client": "^1.18.0",
         "defender-relay-client": "^1.20.0",
         "dotenv": "^16.0.0",
