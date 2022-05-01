@@ -430,37 +430,44 @@ async function validatePrice(
 
     const updateData = ethers.utils.hexZeroPad(token.address, 32);
 
-    await axiosInstance
-        .get("/api/v3/ticker/price", {
-            params: {
-                symbol: token.validation.symbol,
-            },
-        })
-        .then(async function (response: AxiosResponse) {
-            const rateLimitedButHasCache =
-                (response.status == 418 /* rate limit warning */ || response.status == 429) /* IP ban */ &&
-                response.request.fromCache === true;
-            if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
-                apiPrice = ethers.utils.parseUnits(response.data["price"], quoteTokenDecimals);
+    try {
+        await axiosInstance
+            .get("/api/v3/ticker/price", {
+                params: {
+                    symbol: token.validation.symbol,
+                },
+                validateStatus: () => true, // Never throw an error... they're handled below
+            })
+            .then(async function (response: AxiosResponse) {
+                const rateLimitedButHasCache =
+                    (response.status == 418 /* rate limit warning */ || response.status == 429) /* IP ban */ &&
+                    response.request.fromCache === true;
+                if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
+                    apiPrice = ethers.utils.parseUnits(response.data["price"], quoteTokenDecimals);
 
-                console.log(
-                    "API price" + (response.request.fromCache === true ? " (from cache)" : "") + " =",
-                    ethers.utils.formatUnits(apiPrice, quoteTokenDecimals)
-                );
-                console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
+                    console.log(
+                        "API price" + (response.request.fromCache === true ? " (from cache)" : "") + " =",
+                        ethers.utils.formatUnits(apiPrice, quoteTokenDecimals)
+                    );
+                    console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
 
-                const diff = calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
+                    const diff = calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
 
-                console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
+                    console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
 
-                if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
-                    validated = true;
+                    if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
+                        validated = true;
 
-                    // Use the average of the two prices for on-chain validation
-                    usePrice = apiPrice.add(accumulatorPrice).div(2);
+                        // Use the average of the two prices for on-chain validation
+                        usePrice = apiPrice.add(accumulatorPrice).div(2);
+                    }
+                } else {
+                    console.error("Binance API responded with error " + response.status + ": " + response.statusText);
                 }
-            }
-        });
+            });
+    } catch (e) {
+        console.error(e);
+    }
 
     if (!validated) {
         const timeSinceLastUpdate = await accumulator.timeSinceLastUpdate(updateData);
