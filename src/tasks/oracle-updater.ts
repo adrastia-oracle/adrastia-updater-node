@@ -101,6 +101,7 @@ var isLocal = false;
 var useGasLimit = 1000000;
 var onlyCritical = false;
 var defenderStore: KeyValueStoreClient;
+var dryRun = false;
 
 async function getAccumulators(
     store: KeyValueStoreClient,
@@ -291,7 +292,7 @@ async function handleLaUpdate(
 ) {
     const updateData = ethers.utils.hexZeroPad(token, 32);
 
-    if (await liquidityAccumulator.canUpdate(updateData)) {
+    if (dryRun || (await liquidityAccumulator.canUpdate(updateData))) {
         if (onlyCritical) {
             // Critical: changePercent >= updateThreshold * 1.5
             if (!(await accumulatorNeedsCriticalUpdate(store, liquidityAccumulator, token))) {
@@ -311,10 +312,12 @@ async function handleLaUpdate(
             [token, tokenLiquidity, quoteTokenLiquidity]
         );
 
-        const updateTx = await liquidityAccumulator.update(laUpdateData, {
-            gasLimit: useGasLimit,
-        });
-        console.log("Update liquidity accumulator tx:", updateTx.hash);
+        if (!dryRun) {
+            const updateTx = await liquidityAccumulator.update(laUpdateData, {
+                gasLimit: useGasLimit,
+            });
+            console.log("Update liquidity accumulator tx:", updateTx.hash);
+        }
     }
 }
 
@@ -414,6 +417,63 @@ async function getAccumulatorMaxUpdateDelay(
     return maxUpdateDelay;
 }
 
+async function fetchOffchainPrice(token: TokenConfig) {
+    var price = 1.0;
+    var priceSet = false;
+
+    if (token.validation.routes.length == 0) {
+        throw new Error("Token validation has no routes");
+    }
+
+    for (const route of token.validation.routes) {
+        await axiosInstance
+            .get("/api/v3/ticker/price", {
+                params: {
+                    symbol: route.symbol,
+                },
+                validateStatus: () => true, // Never throw an error... they're handled below
+            })
+            .then(async function (response: AxiosResponse) {
+                const rateLimitedButHasCache =
+                    (response.status == 418 /* rate limit warning */ || response.status == 429) /* IP ban */ &&
+                    response.request.fromCache === true;
+                if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
+                    var tickerPrice = parseFloat(response.data["price"]);
+
+                    if (tickerPrice == 0) {
+                        throw new Error("Ticker price is 0");
+                    }
+
+                    if (route.reverse) {
+                        tickerPrice = 1.0 / tickerPrice;
+                    }
+
+                    price *= tickerPrice;
+                    priceSet = true;
+                } else {
+                    const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                    throw new Error(
+                        "Binance API responded with error " +
+                            response.status +
+                            " for symbol " +
+                            route.symbol +
+                            ": " +
+                            response.statusText +
+                            ". Response body: " +
+                            responseBody
+                    );
+                }
+            });
+    }
+
+    if (!priceSet) {
+        throw new Error("No price set");
+    }
+
+    return price;
+}
+
 async function validatePrice(
     store: KeyValueStoreClient,
     accumulator: PriceAccumulator,
@@ -431,40 +491,24 @@ async function validatePrice(
     const updateData = ethers.utils.hexZeroPad(token.address, 32);
 
     try {
-        await axiosInstance
-            .get("/api/v3/ticker/price", {
-                params: {
-                    symbol: token.validation.symbol,
-                },
-                validateStatus: () => true, // Never throw an error... they're handled below
-            })
-            .then(async function (response: AxiosResponse) {
-                const rateLimitedButHasCache =
-                    (response.status == 418 /* rate limit warning */ || response.status == 429) /* IP ban */ &&
-                    response.request.fromCache === true;
-                if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
-                    apiPrice = ethers.utils.parseUnits(response.data["price"], quoteTokenDecimals);
+        apiPrice = ethers.utils.parseUnits(
+            (await fetchOffchainPrice(token)).toFixed(quoteTokenDecimals),
+            quoteTokenDecimals
+        );
 
-                    console.log(
-                        "API price" + (response.request.fromCache === true ? " (from cache)" : "") + " =",
-                        ethers.utils.formatUnits(apiPrice, quoteTokenDecimals)
-                    );
-                    console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
+        console.log("API price =", ethers.utils.formatUnits(apiPrice, quoteTokenDecimals));
+        console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
 
-                    const diff = calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
+        const diff = calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
 
-                    console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
+        console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
 
-                    if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
-                        validated = true;
+        if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
+            validated = true;
 
-                        // Use the average of the two prices for on-chain validation
-                        usePrice = apiPrice.add(accumulatorPrice).div(2);
-                    }
-                } else {
-                    console.error("Binance API responded with error " + response.status + ": " + response.statusText);
-                }
-            });
+            // Use the average of the two prices for on-chain validation
+            usePrice = apiPrice.add(accumulatorPrice).div(2);
+        }
     } catch (e) {
         console.error(e);
     }
@@ -513,7 +557,7 @@ async function handlePaUpdate(
 ) {
     const updateData = ethers.utils.hexZeroPad(token.address, 32);
 
-    if (await priceAccumulator.canUpdate(updateData)) {
+    if (dryRun || (await priceAccumulator.canUpdate(updateData))) {
         if (onlyCritical) {
             // Critical: changePercent >= updateThreshold * 1.5
             if (!(await accumulatorNeedsCriticalUpdate(store, priceAccumulator, token.address))) {
@@ -536,10 +580,12 @@ async function handlePaUpdate(
 
         const paUpdateData = ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, price]);
 
-        const updateTx = await priceAccumulator.update(paUpdateData, {
-            gasLimit: useGasLimit,
-        });
-        console.log("Update price accumulator tx:", updateTx.hash);
+        if (!dryRun) {
+            const updateTx = await priceAccumulator.update(paUpdateData, {
+                gasLimit: useGasLimit,
+            });
+            console.log("Update price accumulator tx:", updateTx.hash);
+        }
     }
 }
 
@@ -589,7 +635,7 @@ async function oracleNeedsCriticalUpdate(
 async function handleOracleUpdate(store: KeyValueStoreClient, oracle: AggregatedOracle, token: string) {
     const updateData = ethers.utils.hexZeroPad(token, 32);
 
-    if (await oracle.canUpdate(updateData)) {
+    if (dryRun || (await oracle.canUpdate(updateData))) {
         if (onlyCritical) {
             // Critical: block.timestamp >= observation.timestamp + (period * 1.5)
             if (!(await oracleNeedsCriticalUpdate(store, oracle, token))) {
@@ -599,10 +645,12 @@ async function handleOracleUpdate(store: KeyValueStoreClient, oracle: Aggregated
 
         console.log("Updating oracle:", oracle.address);
 
-        const updateTx = await oracle.update(updateData, {
-            gasLimit: useGasLimit,
-        });
-        console.log("Update oracle tx:", updateTx.hash);
+        if (!dryRun) {
+            const updateTx = await oracle.update(updateData, {
+                gasLimit: useGasLimit,
+            });
+            console.log("Update oracle tx:", updateTx.hash);
+        }
     }
 }
 
@@ -648,11 +696,17 @@ async function keepUpdated(
     await handleOracleUpdate(store, oracle, token.address);
 }
 
+type ValidationRoute = {
+    symbol: string;
+    reverse: boolean;
+};
+
 type TokenConfig = {
+    enabled?: boolean;
     address: string;
     validation: {
         enabled: boolean;
-        symbol: string;
+        routes: ValidationRoute[];
         allowedChangeBps: number;
     };
 };
@@ -670,6 +724,11 @@ export async function handler(event) {
 
     useGasLimit = txConfig.gasLimit;
     onlyCritical = config.target.type === "critical";
+    dryRun = config.dryRun;
+
+    if (dryRun && !isLocal) {
+        throw new Error("Dry run only supported on local environment");
+    }
 
     const provider = new DefenderRelayProvider(event);
     const signer = new DefenderRelaySigner(event, provider, {
@@ -693,6 +752,8 @@ export async function handler(event) {
         if (!oracleConfig.enabled) continue;
 
         for (const token of oracleConfig.tokens) {
+            if (!(token.enabled ?? true)) continue;
+
             console.log("Updating all components for oracle =", oracleConfig.address, ", token =", token.address);
 
             await keepUpdated(store, signer, oracleConfig.address, token);
