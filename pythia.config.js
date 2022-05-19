@@ -22,7 +22,7 @@ export default {
             oracles: [
                 {
                     enabled: true,
-                    address: "0x9A8ecEeca9388aC17B690d3D4Ae5f37edC01bD05", // Aggregated oracle USDC
+                    address: "0x637D98D08331Af95DF392CC035629e64987E9Ae3", // Aggregated oracle USDC
                     tokens: [
                         {
                             enabled: true,
@@ -58,28 +58,6 @@ export default {
                         },
                         {
                             enabled: true,
-                            address: "0xE6469Ba6D2fD6130788E0eA9C0a0515900563b59", // UST
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "USTBUSD",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "BUSDUSDT",
-                                        reverse: true,
-                                    },
-                                    {
-                                        symbol: "USDCUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                        },
-                        {
-                            enabled: true,
                             address: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // USDT
                             validation: {
                                 enabled: true,
@@ -96,7 +74,7 @@ export default {
                 },
                 {
                     enabled: true,
-                    address: "0x71Db3CB69D09bf4ca97a440B331A51e7826a768A", // Aggregated oracle WETH
+                    address: "0xB284ed29FfC44d62F382202A9232EE8d5AcaebEf", // Aggregated oracle WETH
                     tokens: [
                         {
                             enabled: true,
@@ -144,7 +122,7 @@ export default {
                 },
                 {
                     enabled: true,
-                    address: "0x8aC5f2E2960fb3d022cD45f5410201c5bFc95891", // Aggregated oracle WMATIC
+                    address: "0x49fdef7a903bBe540b1E79Bb2AfE6645B393Bdb4", // Aggregated oracle WMATIC
                     tokens: [
                         {
                             enabled: true,
@@ -186,6 +164,132 @@ export default {
                                     {
                                         symbol: "MATICUSDT",
                                         reverse: true,
+                                    },
+                                ],
+                                allowedChangeBps: 100,
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        arbitrumOne: {
+            txConfig: {
+                normal: {
+                    speed: "fast",
+                    validFor: 120,
+                    gasLimit: 1000000,
+                },
+                critical: {
+                    speed: "fastest",
+                    validFor: 60,
+                    gasLimit: 1000000,
+                },
+            },
+            oracles: [
+                {
+                    enabled: true,
+                    address: "0x138b866d20349fc522cFBFA64335829BA547681b", // Aggregated oracle USDC
+                    tokens: [
+                        {
+                            enabled: true,
+                            address: "0x82af49447d8a07e3bd95bd0d56f35241523fbab1", // WETH
+                            validation: {
+                                enabled: true,
+                                routes: [
+                                    {
+                                        symbol: "ETHUSDC",
+                                        reverse: false,
+                                    },
+                                ],
+                                allowedChangeBps: 100,
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        avalanche: {
+            txConfig: {
+                normal: {
+                    speed: "fast",
+                    validFor: 120,
+                    gasLimit: 1000000,
+                },
+                critical: {
+                    speed: "fastest",
+                    validFor: 60,
+                    gasLimit: 1000000,
+                },
+            },
+            oracles: [
+                {
+                    enabled: true,
+                    address: "0x138b866d20349fc522cFBFA64335829BA547681b", // Aggregated oracle USDC
+                    tokens: [
+                        {
+                            enabled: true,
+                            address: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7", // WAVAX
+                            validation: {
+                                enabled: true,
+                                routes: [
+                                    {
+                                        symbol: "AVAXUSDT",
+                                        reverse: false,
+                                    },
+                                    {
+                                        symbol: "USDCUSDT",
+                                        reverse: true,
+                                    },
+                                ],
+                                allowedChangeBps: 100,
+                            },
+                        },
+                        {
+                            enabled: true,
+                            address: "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab", // WETH.e
+                            validation: {
+                                enabled: true,
+                                routes: [
+                                    {
+                                        symbol: "ETHUSDC",
+                                        reverse: false,
+                                    },
+                                ],
+                                allowedChangeBps: 100,
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        bsc: {
+            txConfig: {
+                normal: {
+                    speed: "fast",
+                    validFor: 120,
+                    gasLimit: 1000000,
+                },
+                critical: {
+                    speed: "fastest",
+                    validFor: 60,
+                    gasLimit: 1000000,
+                },
+            },
+            oracles: [
+                {
+                    enabled: true,
+                    address: "0xeDA407758c98A4bC34763e6A9DFF7313f817C7d6", // Aggregated oracle BUSD
+                    tokens: [
+                        {
+                            enabled: true,
+                            address: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", // WBNB
+                            validation: {
+                                enabled: true,
+                                routes: [
+                                    {
+                                        symbol: "BNBUSDC",
+                                        reverse: false,
                                     },
                                 ],
                                 allowedChangeBps: 100,
