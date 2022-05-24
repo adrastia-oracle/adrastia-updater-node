@@ -9,7 +9,8 @@
         "clean-dist": "rm -rf dist",
         "clean": "yarn clean-stores && yarn clean-dist && yarn clean-typechain",
         "build": "rollup -c -i src/tasks/oracle-updater.ts -o dist/tasks/oracle-updater.js -f cjs",
-        "start-oracle-updater": "node dist/tasks/oracle-updater.js",
+        "run": "node dist/tasks/oracle-updater.js",
+        "bar": "yarn build && yarn run run",
         "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@pythia-oracle/pythia-core/artifacts/**/*.json --out-dir=./typechain && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain "
     },
     "dependencies": {
@@ -20,7 +21,8 @@
         "defender-kvstore-client": "^1.18.0",
         "defender-relay-client": "^1.20.0",
         "dotenv": "^16.0.0",
-        "ethers": "^5.6.4"
+        "ethers": "^5.6.4",
+        "yargs": "^17.5.1"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^21.1.0",

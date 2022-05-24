@@ -102,6 +102,7 @@ var useGasLimit = 1000000;
 var onlyCritical = false;
 var defenderStore: KeyValueStoreClient;
 var dryRun = false;
+var targetFromArgs = undefined;
 
 async function getAccumulators(
     store: KeyValueStoreClient,
@@ -719,11 +720,12 @@ type OracleConfig = {
 
 // Entrypoint for the Autotask
 export async function handler(event) {
-    const chainConfig = config.chains[config.target.chain];
-    const txConfig = chainConfig.txConfig[config.target.type];
+    const target = targetFromArgs ?? config.target;
+    const chainConfig = config.chains[target.chain];
+    const txConfig = chainConfig.txConfig[target.type];
 
     useGasLimit = txConfig.gasLimit;
-    onlyCritical = config.target.type === "critical";
+    onlyCritical = target.type === "critical";
     dryRun = config.dryRun;
 
     if (dryRun && !isLocal) {
@@ -748,6 +750,8 @@ export async function handler(event) {
 
     defenderStore = store;
 
+    console.log("Running for target chain: " + target.chain);
+
     for (const oracleConfig of oraclesConfigs) {
         if (!oracleConfig.enabled) continue;
 
@@ -761,20 +765,82 @@ export async function handler(event) {
     }
 }
 
-type EnvInfo = {
-    API_KEY: string;
-    API_SECRET: string;
-};
+async function sleepFor(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function handlerRepeat(event, repeatInterval: number) {
+    while (true) {
+        try {
+            await handler(event);
+        } catch (e) {
+            console.error(e);
+        }
+
+        console.log("Sleeping for", repeatInterval, "seconds");
+
+        await sleepFor(repeatInterval * 1000);
+    }
+}
 
 // To run locally (this code will not be executed in Autotasks)
 if (require.main === module) {
     require("dotenv").config();
-    const { API_KEY: apiKey, API_SECRET: apiSecret } = process.env as EnvInfo;
-    isLocal = true;
-    handler({ apiKey, apiSecret })
-        .then(() => process.exit(0))
-        .catch((error: Error) => {
-            console.error(error);
-            process.exit(1);
-        });
+
+    const yargs = require("yargs");
+
+    const argv = yargs
+        .command("start", "Starts the oracle updater bot", {
+            chain: {
+                description: "The chain to update the oracles for",
+                alias: "c",
+                type: "string",
+            },
+            every: {
+                description: "The interval in seconds to update the oracles",
+                alias: "e",
+                type: "number",
+            },
+        })
+        .help()
+        .alias("help", "h").argv;
+
+    if (argv._.includes("start")) {
+        const chain = argv.chain;
+
+        let apiKey: string, apiSecret: string;
+
+        if (chain) {
+            const chainInCaps = chain.toUpperCase();
+
+            apiKey = process.env[`${chainInCaps}_API_KEY`] as string;
+            apiSecret = process.env[`${chainInCaps}_API_SECRET`] as string;
+
+            targetFromArgs = {
+                chain: chain,
+                type: "normal",
+            };
+        } else {
+            apiKey = process.env.API_KEY as string;
+            apiSecret = process.env.API_SECRET as string;
+        }
+
+        isLocal = true;
+
+        if (argv.every) {
+            handlerRepeat({ apiKey, apiSecret }, argv.every)
+                .then(() => process.exit(0))
+                .catch((error: Error) => {
+                    console.error(error);
+                    process.exit(1);
+                });
+        } else {
+            handler({ apiKey, apiSecret })
+                .then(() => process.exit(0))
+                .catch((error: Error) => {
+                    console.error(error);
+                    process.exit(1);
+                });
+        }
+    }
 }
