@@ -3,8 +3,9 @@ export default {
     target: {
         chain: "polygon",
         type: "normal",
+        batch: 1,
     },
-    dryRun: false,
+    dryRun: true,
     chains: {
         polygon: {
             txConfig: {
@@ -37,6 +38,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -55,6 +57,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -69,6 +72,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                     ],
                 },
@@ -89,6 +93,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -103,6 +108,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -117,6 +123,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                     ],
                 },
@@ -141,6 +148,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -150,6 +158,7 @@ export default {
                                 routes: [],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -168,6 +177,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                     ],
                 },
@@ -204,6 +214,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                     ],
                 },
@@ -244,6 +255,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                         {
                             enabled: true,
@@ -258,6 +270,7 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
                         },
                     ],
                 },
@@ -294,6 +307,48 @@ export default {
                                 ],
                                 allowedChangeBps: 100,
                             },
+                            batch: 1,
+                        },
+                    ],
+                },
+            ],
+        },
+        optimism: {
+            txConfig: {
+                normal: {
+                    speed: "fast",
+                    validFor: 120,
+                    gasLimit: 1000000,
+                },
+                critical: {
+                    speed: "fastest",
+                    validFor: 60,
+                    gasLimit: 1000000,
+                },
+            },
+            oracles: [
+                {
+                    enabled: true,
+                    address: "0x127EE750A56A64c39c2d7abb30d221c51cEDBe12", // Uniswap v3 (3%) Oracle DAI
+                    tokens: [
+                        {
+                            enabled: true,
+                            address: "0x4200000000000000000000000000000000000006", // WETH
+                            validation: {
+                                enabled: true,
+                                routes: [
+                                    {
+                                        symbol: "ETHUSDT",
+                                        reverse: false,
+                                    },
+                                    {
+                                        symbol: "USDTDAI",
+                                        reverse: false,
+                                    },
+                                ],
+                                allowedChangeBps: 100,
+                            },
+                            batch: 1,
                         },
                     ],
                 },

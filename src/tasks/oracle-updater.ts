@@ -710,6 +710,7 @@ type TokenConfig = {
         routes: ValidationRoute[];
         allowedChangeBps: number;
     };
+    batch: number;
 };
 
 type OracleConfig = {
@@ -750,13 +751,15 @@ export async function handler(event) {
 
     defenderStore = store;
 
-    console.log("Running for target chain: " + target.chain);
+    console.log(`Running batch ${target.batch} for target chain: ${target.chain}`);
 
     for (const oracleConfig of oraclesConfigs) {
         if (!oracleConfig.enabled) continue;
 
         for (const token of oracleConfig.tokens) {
             if (!(token.enabled ?? true)) continue;
+
+            if (token.batch != target.batch) continue;
 
             console.log("Updating all components for oracle =", oracleConfig.address, ", token =", token.address);
 
@@ -801,11 +804,19 @@ if (require.main === module) {
                 alias: "e",
                 type: "number",
             },
+            batch: {
+                description: "The batch of assets to update the oracles for",
+                alias: "b",
+                type: "number",
+                default: 1,
+            },
         })
         .help()
         .alias("help", "h").argv;
 
     if (argv._.includes("start")) {
+        targetFromArgs = config.target;
+
         const chain = argv.chain;
 
         let apiKey: string, apiSecret: string;
@@ -816,14 +827,13 @@ if (require.main === module) {
             apiKey = process.env[`${chainInCaps}_API_KEY`] as string;
             apiSecret = process.env[`${chainInCaps}_API_SECRET`] as string;
 
-            targetFromArgs = {
-                chain: chain,
-                type: "normal",
-            };
+            targetFromArgs.chain = chain;
         } else {
             apiKey = process.env.API_KEY as string;
             apiSecret = process.env.API_SECRET as string;
         }
+
+        targetFromArgs.batch = argv.batch;
 
         isLocal = true;
 
