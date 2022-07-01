@@ -1,8 +1,8 @@
-# Pythia Defender Autotasks
+# Adrastia Defender Autotasks
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
-A collection of autotasks for use with [OpenZeppelin Defender](https://openzeppelin.com/defender/) to perform Pythia oracle maintenance.
+A collection of autotasks for use with [OpenZeppelin Defender](https://openzeppelin.com/defender/) to perform Adrastia oracle maintenance.
 
 ## Install
 
@@ -21,13 +21,13 @@ A collection of autotasks for use with [OpenZeppelin Defender](https://openzeppe
 1. Clone the repository
 
 ```console
-git clone git@github.com:pythia-oracle/pythia-defender-autotasks.git
+git clone git@github.com:adrastia-oracle/adrastia-defender-autotasks.git
 ```
 
 2. Enter the project folder
 
 ```console
-cd pythia-defender-autotasks
+cd adrastia-defender-autotasks
 ```
 
 3. Install using yarn
@@ -46,7 +46,7 @@ yarn typechain:generate
 
 ### Building autotask scripts
 
-1. Configure [pythia.config.js](pythia.config.js)
+1. Configure [adrastia.config.js](adrastia.config.js)
 2. Build the autotask scripts for distribution
 
 ```console
@@ -78,4 +78,4 @@ Not open to contributions at this time.
 
 ## License
 
-Pythia Defender Autotasks is licensed under the [MIT License](LICENSE).
+Adrastia Defender Autotasks is licensed under the [MIT License](LICENSE).

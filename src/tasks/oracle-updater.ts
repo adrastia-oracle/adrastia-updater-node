@@ -21,7 +21,7 @@ import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/art
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 
 // Import config
-import config from "../../pythia.config";
+import config from "../../adrastia.config";
 import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 import { AggregatedOracle } from "../../typechain/oracles";
