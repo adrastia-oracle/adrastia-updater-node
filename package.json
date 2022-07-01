@@ -31,6 +31,7 @@
         "@rollup/plugin-typescript": "^8.3.2",
         "@typechain/ethers-v5": "^10.0.0",
         "builtin-modules": "^3.2.0",
+        "hardhat": "^2.9.9",
         "prettier": "^2.6.2",
         "rollup": "^2.70.2",
         "tslib": "^2.3.1",
