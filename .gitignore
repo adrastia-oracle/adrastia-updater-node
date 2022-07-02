@@ -8,6 +8,7 @@
 node_modules
 dist
 typechain
+cache
 
 # Temporary files
 *.tmp
