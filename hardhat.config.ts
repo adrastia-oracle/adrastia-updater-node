@@ -1,8 +1,8 @@
-require("@nomiclabs/hardhat-waffle");
+import "@nomiclabs/hardhat-waffle";
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-module.exports = {
+export default {
     solidity: "0.8.15",
 };

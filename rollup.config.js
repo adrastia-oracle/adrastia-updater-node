@@ -5,7 +5,7 @@ import json from "@rollup/plugin-json";
 import builtins from "builtin-modules";
 
 export default {
-    plugins: [resolve({ preferBuiltins: true }), commonjs(), json({ compact: true }), typescript()],
+    plugins: [resolve({ preferBuiltins: true }), commonjs(), json({ compact: true }), typescript({ module: "esnext" })],
     external: [
         ...builtins,
         "ethers",
