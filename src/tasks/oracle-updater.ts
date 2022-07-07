@@ -71,7 +71,7 @@ class DefenderAxiosStore {
     }
 }
 
-class AdrastiaUpdater {
+export class AdrastiaUpdater {
     // Interface IDs
     static IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
     static IHASPRICEACCUMULATOR_INTERFACEID = "0x6b72d0ba";
@@ -79,6 +79,7 @@ class AdrastiaUpdater {
 
     signer: Signer;
     store: IKeyValueStore;
+    handleUpdateTx: (tx: ethers.ContractTransaction, updater: AdrastiaUpdater) => Promise<void>;
 
     useGasLimit = 1000000;
     onlyCritical = false;
@@ -86,9 +87,17 @@ class AdrastiaUpdater {
 
     axiosInstance: AxiosInstance;
 
-    constructor(signer: Signer, store: IKeyValueStore, useGasLimit: number, onlyCritical: boolean, dryRun: boolean) {
+    constructor(
+        signer: Signer,
+        store: IKeyValueStore,
+        useGasLimit: number,
+        onlyCritical: boolean,
+        dryRun: boolean,
+        handleUpdateTx: (tx: ethers.ContractTransaction, updater: AdrastiaUpdater) => Promise<void>
+    ) {
         this.signer = signer;
         this.store = store;
+        this.handleUpdateTx = handleUpdateTx;
 
         this.useGasLimit = useGasLimit;
         this.onlyCritical = onlyCritical;
@@ -320,6 +329,10 @@ class AdrastiaUpdater {
                     gasLimit: this.useGasLimit,
                 });
                 console.log("Update liquidity accumulator tx:", updateTx.hash);
+
+                if (this.handleUpdateTx) {
+                    await this.handleUpdateTx(updateTx, this);
+                }
             }
         }
     }
@@ -572,6 +585,10 @@ class AdrastiaUpdater {
                     gasLimit: this.useGasLimit,
                 });
                 console.log("Update price accumulator tx:", updateTx.hash);
+
+                if (this.handleUpdateTx) {
+                    await this.handleUpdateTx(updateTx, this);
+                }
             }
         }
     }
@@ -633,6 +650,10 @@ class AdrastiaUpdater {
                     gasLimit: this.useGasLimit,
                 });
                 console.log("Update oracle tx:", updateTx.hash);
+
+                if (this.handleUpdateTx) {
+                    await this.handleUpdateTx(updateTx, this);
+                }
             }
         }
     }
@@ -704,9 +725,10 @@ export async function run(
     store: IKeyValueStore,
     useGasLimit: number,
     onlyCritical: boolean,
-    dryRun: boolean
+    dryRun: boolean,
+    handleUpdateTx: (tx: ethers.providers.TransactionResponse, updater: AdrastiaUpdater) => Promise<void>
 ) {
-    const updater = new AdrastiaUpdater(signer, store, useGasLimit, onlyCritical, dryRun);
+    const updater = new AdrastiaUpdater(signer, store, useGasLimit, onlyCritical, dryRun, handleUpdateTx);
 
     for (const oracleConfig of oracleConfigs) {
         if (!oracleConfig.enabled) continue;
@@ -741,7 +763,16 @@ export async function handler(event) {
 
     console.log(`Running batch ${target.batch} for target chain: ${target.chain}`);
 
-    await run(oracleConfigs, target.batch, signer, store, txConfig.gasLimit, target.type === "critical", config.dryRun);
+    await run(
+        oracleConfigs,
+        target.batch,
+        signer,
+        store,
+        txConfig.gasLimit,
+        target.type === "critical",
+        config.dryRun,
+        undefined
+    );
 }
 
 async function sleepFor(ms: number) {
@@ -774,7 +805,16 @@ async function runRepeat(
         try {
             console.log(`Running batch ${batch} for target chain: ${chain}`);
 
-            await run(oracleConfigs, batch, signer, store, txConfig.gasLimit, mode === "critical", config.dryRun);
+            await run(
+                oracleConfigs,
+                batch,
+                signer,
+                store,
+                txConfig.gasLimit,
+                mode === "critical",
+                config.dryRun,
+                undefined
+            );
         } catch (e) {
             console.error(e);
         }
