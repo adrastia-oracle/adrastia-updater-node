@@ -43,6 +43,22 @@ const config: HardhatUserConfig = {
                 passphrase: process.env.ETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
         },
+        optimism: {
+            url: process.env.OPTIMISM_URL,
+            accounts: {
+                mnemonic: process.env.OPTIMISM_MNEMONIC,
+                path: process.env.OPTIMISM_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.OPTIMISM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+        },
+        arbitrumOne: {
+            url: process.env.ARBITRUMONE_URL,
+            accounts: {
+                mnemonic: process.env.ARBITRUMONE_MNEMONIC,
+                path: process.env.ARBITRUMONE_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.ARBITRUMONE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+        },
     },
 };
 
