@@ -1,4 +1,49 @@
-export default {
+type ValidationRoute = {
+    symbol: string;
+    reverse: boolean;
+};
+
+type TokenConfig = {
+    enabled?: boolean;
+    address: string;
+    validation: {
+        enabled: boolean;
+        routes: ValidationRoute[];
+        allowedChangeBps: number;
+    };
+    batch: number;
+};
+
+type OracleConfig = {
+    enabled: boolean;
+    address: string;
+    tokens: TokenConfig[];
+};
+
+type UpdaterMode = "normal" | "critical";
+
+type TxConfig = {
+    speed: "normal" | "fast" | "fastest";
+    validFor: number;
+    gasLimit: number;
+};
+
+type ChainConfig = {
+    txConfig: Record<UpdaterMode, TxConfig>;
+    oracles: OracleConfig[];
+};
+
+type AdrastiaConfig = {
+    target: {
+        chain: string;
+        type: UpdaterMode;
+        batch: number;
+    };
+    dryRun: boolean;
+    chains: Record<string, ChainConfig>;
+};
+
+const config: AdrastiaConfig = {
     // Change target to generate a different script
     target: {
         chain: "polygon",
@@ -356,3 +401,5 @@ export default {
         },
     },
 };
+
+export default config;
