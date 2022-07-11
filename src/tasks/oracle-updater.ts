@@ -22,7 +22,7 @@ import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/art
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 
 // Import config
-import config from "../../adrastia.config";
+import config, { OracleConfig, TokenConfig } from "../../adrastia.config";
 import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 import { AggregatedOracle } from "../../typechain/oracles";
@@ -695,28 +695,6 @@ export class AdrastiaUpdater {
         await this.handleOracleUpdate(oracle, token.address);
     }
 }
-
-type ValidationRoute = {
-    symbol: string;
-    reverse: boolean;
-};
-
-type TokenConfig = {
-    enabled?: boolean;
-    address: string;
-    validation: {
-        enabled: boolean;
-        routes: ValidationRoute[];
-        allowedChangeBps: number;
-    };
-    batch: number;
-};
-
-type OracleConfig = {
-    enabled: boolean;
-    address: string;
-    tokens: TokenConfig[];
-};
 
 export async function run(
     oracleConfigs: OracleConfig[],

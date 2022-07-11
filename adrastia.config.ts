@@ -1,9 +1,9 @@
-type ValidationRoute = {
+export type ValidationRoute = {
     symbol: string;
     reverse: boolean;
 };
 
-type TokenConfig = {
+export type TokenConfig = {
     enabled?: boolean;
     address: string;
     validation: {
@@ -14,26 +14,26 @@ type TokenConfig = {
     batch: number;
 };
 
-type OracleConfig = {
+export type OracleConfig = {
     enabled: boolean;
     address: string;
     tokens: TokenConfig[];
 };
 
-type UpdaterMode = "normal" | "critical";
+export type UpdaterMode = "normal" | "critical";
 
-type TxConfig = {
+export type TxConfig = {
     speed: "normal" | "fast" | "fastest";
     validFor: number;
     gasLimit: number;
 };
 
-type ChainConfig = {
+export type ChainConfig = {
     txConfig: Record<UpdaterMode, TxConfig>;
     oracles: OracleConfig[];
 };
 
-type AdrastiaConfig = {
+export type AdrastiaConfig = {
     target: {
         chain: string;
         type: UpdaterMode;
