@@ -79,7 +79,7 @@ export class AdrastiaUpdater {
 
     signer: Signer;
     store: IKeyValueStore;
-    handleUpdateTx: (tx: ethers.ContractTransaction, updater: AdrastiaUpdater) => Promise<void>;
+    handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>;
 
     useGasLimit = 1000000;
     onlyCritical = false;
@@ -93,7 +93,7 @@ export class AdrastiaUpdater {
         useGasLimit: number,
         onlyCritical: boolean,
         dryRun: boolean,
-        handleUpdateTx: (tx: ethers.ContractTransaction, updater: AdrastiaUpdater) => Promise<void>
+        handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>
     ) {
         this.signer = signer;
         this.store = store;
@@ -331,7 +331,7 @@ export class AdrastiaUpdater {
                 console.log("Update liquidity accumulator tx:", updateTx.hash);
 
                 if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this);
+                    await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
         }
@@ -587,7 +587,7 @@ export class AdrastiaUpdater {
                 console.log("Update price accumulator tx:", updateTx.hash);
 
                 if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this);
+                    await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
         }
@@ -652,7 +652,7 @@ export class AdrastiaUpdater {
                 console.log("Update oracle tx:", updateTx.hash);
 
                 if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this);
+                    await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
         }
@@ -704,7 +704,7 @@ export async function run(
     useGasLimit: number,
     onlyCritical: boolean,
     dryRun: boolean,
-    handleUpdateTx: (tx: ethers.providers.TransactionResponse, updater: AdrastiaUpdater) => Promise<void>
+    handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>
 ) {
     const updater = new AdrastiaUpdater(signer, store, useGasLimit, onlyCritical, dryRun, handleUpdateTx);
 
