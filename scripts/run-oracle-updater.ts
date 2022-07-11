@@ -6,20 +6,16 @@ import Timeout from "await-timeout";
 
 import { ethers, network } from "hardhat";
 import { BigNumber, ethers as _ethers } from "ethers";
-import { AdrastiaUpdater, run } from "../src/tasks/oracle-updater";
+import { run } from "../src/tasks/oracle-updater";
 
 import config, { UpdaterMode } from "../adrastia.config";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 
 const ONE_GWEI = BigNumber.from("1000000000");
 
-const UPDATER_ADDRESS = "0xaa32c429b6051aad41c8c172edbffe0922fef82c";
-
 const MODE: UpdaterMode = "normal";
 
-const BATCH: number = 1;
-
-const IMPERSONATE_UPDATER = true;
+const BATCH: number = 0;
 
 class UpdateTransactionHandler {
     transactionTimeout: number;
@@ -79,29 +75,24 @@ class UpdateTransactionHandler {
 }
 
 async function main() {
-    if (IMPERSONATE_UPDATER) {
-        await network.provider.request({
-            method: "hardhat_impersonateAccount",
-            params: [UPDATER_ADDRESS],
-        });
-    }
-
-    const updater = await ethers.getSigner(UPDATER_ADDRESS);
+    const accounts = await ethers.getSigners();
 
     const store = new KeyValueStoreClient({ path: "store.json.tmp" });
 
-    const txConfig = config.chains.polygon.txConfig[MODE];
+    const txConfig = config.chains[network.name].txConfig[MODE];
 
     const updateTxHandler = new UpdateTransactionHandler(txConfig.validFor * 1000);
 
+    console.log(network.name);
+
     await run(
-        config.chains.polygon.oracles,
+        config.chains[network.name].oracles,
         BATCH,
-        updater,
+        accounts[BATCH],
         store,
         txConfig.gasLimit,
-        false,
-        false,
+        false, // only critical
+        false, // dry run
         updateTxHandler.handleUpdateTx
     );
 }
