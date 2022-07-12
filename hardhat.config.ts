@@ -2,8 +2,13 @@ import * as dotenv from "dotenv";
 
 import "@nomiclabs/hardhat-waffle";
 
-import { task } from "hardhat/config";
+import { task, types } from "hardhat/config";
 import { HardhatUserConfig } from "hardhat/types";
+import { KeyValueStoreClient } from "defender-kvstore-client";
+
+import { default as adrastiaConfig } from "./adrastia.config";
+import { UpdateTransactionHandler } from "./src/util/update-tx-handler";
+import { run } from "./src/tasks/oracle-updater";
 
 dotenv.config();
 
@@ -17,6 +22,61 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
         console.log(i + ": " + accounts[i].address);
     }
 });
+
+task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
+    .addParam("batch", "The index of the account to use as the updater.", 0, types.int, true)
+    .addParam("mode", "The mode of the updater. Either 'normal' or 'critical'.", "normal", types.string, true)
+    .addParam(
+        "every",
+        "The interval in seconds to run the updater. The updater is only run once by default.",
+        undefined,
+        types.int,
+        true
+    )
+    .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
+    .setAction(async (taskArgs, hre) => {
+        const accounts = await hre.ethers.getSigners();
+
+        const store = new KeyValueStoreClient({ path: "store.json.tmp" });
+
+        const txConfig = adrastiaConfig.chains[hre.network.name].txConfig[taskArgs.mode];
+
+        const updateTxHandler = new UpdateTransactionHandler(txConfig.validFor * 1000);
+
+        const repeatInterval = taskArgs.every ?? 0;
+        const repeatTimes = taskArgs.every ?? 1;
+
+        var timesRepeated = 0;
+
+        while (timesRepeated++ < repeatTimes) {
+            try {
+                console.log(
+                    `Running batch ${taskArgs.batch} using account '${
+                        accounts[taskArgs.batch].address
+                    }' for target chain '${hre.network.name}'`
+                );
+
+                await run(
+                    adrastiaConfig.chains[hre.network.name].oracles,
+                    taskArgs.batch,
+                    accounts[taskArgs.batch],
+                    store,
+                    txConfig.gasLimit,
+                    taskArgs.mode === "critical",
+                    taskArgs.dryRun,
+                    updateTxHandler.handleUpdateTx
+                );
+            } catch (e) {
+                console.error(e);
+            }
+
+            if (repeatInterval > 0) {
+                console.log("Sleeping for", repeatInterval, "seconds");
+
+                await new Promise((resolve) => setTimeout(resolve, repeatInterval * 1000));
+            }
+        }
+    });
 
 const config: HardhatUserConfig = {
     solidity: "0.8.15",

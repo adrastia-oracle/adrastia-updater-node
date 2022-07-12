@@ -4,27 +4,18 @@
  */
 import Timeout from "await-timeout";
 
-import { ethers, network } from "hardhat";
-import { BigNumber, ethers as _ethers } from "ethers";
-import { run } from "../src/tasks/oracle-updater";
-
-import config, { UpdaterMode } from "../adrastia.config";
-import { KeyValueStoreClient } from "defender-kvstore-client";
+import { BigNumber, ethers } from "ethers";
 
 const ONE_GWEI = BigNumber.from("1000000000");
 
-const MODE: UpdaterMode = "normal";
-
-const BATCH: number = 0;
-
-class UpdateTransactionHandler {
+export class UpdateTransactionHandler {
     transactionTimeout: number;
 
     constructor(transactionTimeout: number) {
         this.transactionTimeout = transactionTimeout;
     }
 
-    async dropTransaction(tx: _ethers.ContractTransaction, signer: _ethers.Signer) {
+    async dropTransaction(tx: ethers.ContractTransaction, signer: ethers.Signer) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
@@ -61,7 +52,7 @@ class UpdateTransactionHandler {
         }
     }
 
-    async handleUpdateTx(tx: _ethers.ContractTransaction, signer: _ethers.Signer) {
+    async handleUpdateTx(tx: ethers.ContractTransaction, signer: ethers.Signer) {
         try {
             await Timeout.wrap(tx.wait(), this.transactionTimeout, "Timeout");
         } catch (e) {
@@ -73,33 +64,3 @@ class UpdateTransactionHandler {
         }
     }
 }
-
-async function main() {
-    const accounts = await ethers.getSigners();
-
-    const store = new KeyValueStoreClient({ path: "store.json.tmp" });
-
-    const txConfig = config.chains[network.name].txConfig[MODE];
-
-    const updateTxHandler = new UpdateTransactionHandler(txConfig.validFor * 1000);
-
-    console.log(network.name);
-
-    await run(
-        config.chains[network.name].oracles,
-        BATCH,
-        accounts[BATCH],
-        store,
-        txConfig.gasLimit,
-        false, // only critical
-        false, // dry run
-        updateTxHandler.handleUpdateTx
-    );
-}
-
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
