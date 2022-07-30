@@ -94,6 +94,7 @@ const config: HardhatUserConfig = {
                 path: process.env.POLYGON_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGON_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
+            gasMultiplier: 1.25,
         },
         ethereum: {
             url: process.env.ETHEREUM_URL,
@@ -102,6 +103,7 @@ const config: HardhatUserConfig = {
                 path: process.env.ETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
+            gasMultiplier: 1.25,
         },
         optimism: {
             url: process.env.OPTIMISM_URL,
@@ -110,6 +112,7 @@ const config: HardhatUserConfig = {
                 path: process.env.OPTIMISM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.OPTIMISM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
+            gasMultiplier: 1.25,
         },
         arbitrumOne: {
             url: process.env.ARBITRUMONE_URL,
@@ -118,6 +121,7 @@ const config: HardhatUserConfig = {
                 path: process.env.ARBITRUMONE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ARBITRUMONE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
+            gasMultiplier: 1.25,
         },
     },
 };
