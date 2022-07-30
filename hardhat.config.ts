@@ -41,7 +41,16 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const txConfig = adrastiaConfig.chains[hre.network.name].txConfig[taskArgs.mode];
 
-        const updateTxHandler = new UpdateTransactionHandler(txConfig.validFor * 1000);
+        const transactionTimeout = txConfig.validFor * 1000;
+
+        const updateTxHandler = new UpdateTransactionHandler(transactionTimeout);
+
+        console.log("Starting the oracle updater with the following parameters:");
+        console.log(`  - batch: ${taskArgs.batch}`);
+        console.log(`  - mode: ${taskArgs.mode}`);
+        console.log(`  - every: ${taskArgs.every}`);
+        console.log(`  - dryRun: ${taskArgs.dryRun}`);
+        console.log(`  - transactionTimeout: ${transactionTimeout}`);
 
         const repeatInterval = taskArgs.every ?? 0;
         const repeatTimes = taskArgs.every ?? 1;
