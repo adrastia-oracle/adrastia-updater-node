@@ -53,7 +53,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
 
         const repeatInterval = taskArgs.every ?? 0;
-        const repeatTimes = taskArgs.every ?? 1;
+        const repeatTimes = taskArgs.every === undefined ? 1 : Number.MAX_SAFE_INTEGER;
 
         var timesRepeated = 0;
 
