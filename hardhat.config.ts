@@ -73,7 +73,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     txConfig.gasLimit,
                     taskArgs.mode === "critical",
                     taskArgs.dryRun,
-                    updateTxHandler.handleUpdateTx
+                    updateTxHandler.handleUpdateTx.bind(updateTxHandler)
                 );
             } catch (e) {
                 console.error(e);
