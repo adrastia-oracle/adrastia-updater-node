@@ -10,6 +10,8 @@ import { default as adrastiaConfig } from "./adrastia.config";
 import { UpdateTransactionHandler } from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
 
+import "log-timestamp";
+
 dotenv.config();
 
 const DEFAULT_PATH = "m/44'/60'/0'/0/0";
