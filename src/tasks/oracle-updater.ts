@@ -77,6 +77,7 @@ export class AdrastiaUpdater {
     static IHASPRICEACCUMULATOR_INTERFACEID = "0x6b72d0ba";
     static IAGGREGATEDORACLE_INTERFACEID = "0xce2362c4";
 
+    chain: string;
     signer: Signer;
     store: IKeyValueStore;
     handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>;
@@ -88,6 +89,7 @@ export class AdrastiaUpdater {
     axiosInstance: AxiosInstance;
 
     constructor(
+        chain: string,
         signer: Signer,
         store: IKeyValueStore,
         useGasLimit: number,
@@ -95,6 +97,7 @@ export class AdrastiaUpdater {
         dryRun: boolean,
         handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>
     ) {
+        this.chain = chain;
         this.signer = signer;
         this.store = store;
         this.handleUpdateTx = handleUpdateTx;
@@ -134,8 +137,8 @@ export class AdrastiaUpdater {
 
         console.log("Discovering accumulators for oracle: " + oracleAddress);
 
-        const lasStoreKey = oracleAddress + ".las";
-        const pasStoreKey = oracleAddress + ".pas";
+        const lasStoreKey = this.chain + "." + oracleAddress + ".las";
+        const pasStoreKey = this.chain + "." + oracleAddress + ".pas";
 
         const lasFromStore = await this.store.get(lasStoreKey);
         const pasFromStore = await this.store.get(pasStoreKey);
@@ -267,7 +270,7 @@ export class AdrastiaUpdater {
     async getAccumulatorUpdateThreshold(accumulator: IAccumulator): Promise<BigNumber> {
         console.log("Getting update threshold for accumulator: " + accumulator.address);
 
-        const updateThresholdStoreKey = accumulator.address + ".updateThreshold";
+        const updateThresholdStoreKey = this.chain + "." + accumulator.address + ".updateThreshold";
         const updateThresholdFromStore = await this.store.get(updateThresholdStoreKey);
 
         if (updateThresholdFromStore !== undefined && updateThresholdFromStore !== null) {
@@ -384,7 +387,7 @@ export class AdrastiaUpdater {
     async getAccumulatorQuoteTokenDecimals(accumulator: PriceAccumulator): Promise<number> {
         console.log("Getting quote token decimals for accumulator: " + accumulator.address);
 
-        const quoteTokenDecimalsStoreKey = accumulator.address + ".quoteTokenDecimals";
+        const quoteTokenDecimalsStoreKey = this.chain + "." + accumulator.address + ".quoteTokenDecimals";
         const quoteTokenDecimalsFromStore = await this.store.get(quoteTokenDecimalsStoreKey);
 
         if (quoteTokenDecimalsFromStore !== undefined && quoteTokenDecimalsFromStore !== null) {
@@ -407,7 +410,7 @@ export class AdrastiaUpdater {
     async getAccumulatorMaxUpdateDelay(accumulator: PriceAccumulator): Promise<BigNumber> {
         console.log("Getting max update delay for accumulator: " + accumulator.address);
 
-        const maxUpdateDelayStoreKey = accumulator.address + ".maxUpdateDelay";
+        const maxUpdateDelayStoreKey = this.chain + "." + accumulator.address + ".maxUpdateDelay";
         const maxUpdateDelayFromStore = await this.store.get(maxUpdateDelayStoreKey);
 
         if (maxUpdateDelayFromStore !== undefined && maxUpdateDelayFromStore !== null) {
@@ -596,7 +599,7 @@ export class AdrastiaUpdater {
     async getOraclePeriod(oracle: AggregatedOracle): Promise<number> {
         console.log("Getting period for oracle: " + oracle.address);
 
-        const periodStoreKey = oracle.address + ".period";
+        const periodStoreKey = this.chain + "." + oracle.address + ".period";
 
         const periodFromStore = await this.store.get(periodStoreKey);
         if (periodFromStore !== undefined && periodFromStore !== null && !isNaN(parseInt(periodFromStore))) {
@@ -698,6 +701,7 @@ export class AdrastiaUpdater {
 
 export async function run(
     oracleConfigs: OracleConfig[],
+    chain: string,
     batch: number,
     signer: Signer,
     store: IKeyValueStore,
@@ -706,7 +710,7 @@ export async function run(
     dryRun: boolean,
     handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>
 ) {
-    const updater = new AdrastiaUpdater(signer, store, useGasLimit, onlyCritical, dryRun, handleUpdateTx);
+    const updater = new AdrastiaUpdater(chain, signer, store, useGasLimit, onlyCritical, dryRun, handleUpdateTx);
 
     for (const oracleConfig of oracleConfigs) {
         if (!oracleConfig.enabled) continue;
@@ -743,6 +747,7 @@ export async function handler(event) {
 
     await run(
         oracleConfigs,
+        target.chain,
         target.batch,
         signer,
         store,
@@ -785,6 +790,7 @@ async function runRepeat(
 
             await run(
                 oracleConfigs,
+                chain,
                 batch,
                 signer,
                 store,

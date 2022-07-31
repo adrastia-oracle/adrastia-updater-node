@@ -69,6 +69,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
                 await run(
                     adrastiaConfig.chains[hre.network.name].oracles,
+                    hre.network.name,
                     taskArgs.batch,
                     accounts[taskArgs.batch],
                     store,
