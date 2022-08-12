@@ -135,6 +135,33 @@ const config: HardhatUserConfig = {
             },
             gasMultiplier: 1.25,
         },
+        avalanche: {
+            url: process.env.AVALANCHE_URL,
+            accounts: {
+                mnemonic: process.env.AVALANCHE_MNEMONIC,
+                path: process.env.AVALANCHE_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.AVALANCHE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
+        fantom: {
+            url: process.env.FANTOM_URL,
+            accounts: {
+                mnemonic: process.env.FANTOM_MNEMONIC,
+                path: process.env.FANTOM_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.FANTOM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
+        bsc: {
+            url: process.env.BSC_URL,
+            accounts: {
+                mnemonic: process.env.BSC_MNEMONIC,
+                path: process.env.BSC_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.BSC_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
     },
 };
 
