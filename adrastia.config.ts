@@ -38,6 +38,7 @@ export type AdrastiaConfig = {
         chain: string;
         type: UpdaterMode;
         batch: number;
+        delay: number;
     };
     dryRun: boolean;
     chains: Record<string, ChainConfig>;
@@ -49,6 +50,7 @@ const config: AdrastiaConfig = {
         chain: "polygon",
         type: "normal",
         batch: 1,
+        delay: 0, // The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent
     },
     dryRun: true,
     chains: {

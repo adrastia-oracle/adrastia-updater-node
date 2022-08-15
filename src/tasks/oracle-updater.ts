@@ -1,6 +1,6 @@
 // Import dependencies available in the autotask environment
 import { DefenderRelayProvider, DefenderRelaySigner } from "defender-relay-client/lib/ethers";
-import { BigNumber, ethers } from "ethers";
+import { BaseContract, BigNumber, ethers } from "ethers";
 import { Signer } from "@ethersproject/abstract-signer";
 
 // Import typechain
@@ -10,6 +10,7 @@ import {
     IAggregatedOracle,
     IHasLiquidityAccumulator,
     IHasPriceAccumulator,
+    IOracle,
 } from "../../typechain/interfaces";
 import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/accumulators";
 
@@ -81,6 +82,7 @@ export class AdrastiaUpdater {
     signer: Signer;
     store: IKeyValueStore;
     handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>;
+    updateDelay: number; // in seconds
 
     useGasLimit = 1000000;
     onlyCritical = false;
@@ -95,12 +97,14 @@ export class AdrastiaUpdater {
         useGasLimit: number,
         onlyCritical: boolean,
         dryRun: boolean,
-        handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>
+        handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>,
+        updateDelay: number
     ) {
         this.chain = chain;
         this.signer = signer;
         this.store = store;
         this.handleUpdateTx = handleUpdateTx;
+        this.updateDelay = updateDelay;
 
         this.useGasLimit = useGasLimit;
         this.onlyCritical = onlyCritical;
@@ -305,6 +309,55 @@ export class AdrastiaUpdater {
         return criticalUpdateNeeded;
     }
 
+    async updateIsDelayed(contract: BaseContract, token: string): Promise<boolean> {
+        if (this.updateDelay <= 0) return false;
+
+        console.log("Checking if accumulator update is delayed: " + contract.address + " (token: " + token + ")");
+
+        const storeKey = this.chain + "." + contract.address + "." + token + ".updateNeededSince";
+        const timeFromStore = await this.store.get(storeKey);
+
+        const currentTime = Math.floor(Date.now() / 1000); // unix timestamp
+
+        if (timeFromStore !== undefined && timeFromStore !== null) {
+            try {
+                const updateOnOrAfter = Number.parseInt(timeFromStore) + this.updateDelay; // unix timestamp
+
+                const isDelayed = currentTime < updateOnOrAfter;
+
+                console.log(
+                    "Update on or after: " +
+                        new Date(updateOnOrAfter * 1000).toISOString() +
+                        " (" +
+                        (isDelayed ? "delayed" : "not delayed") +
+                        ")"
+                );
+
+                return isDelayed;
+            } catch (e) {}
+        }
+
+        console.log("First update needed observation recorded. Update needed in " + this.updateDelay + " seconds.");
+
+        await this.store.put(storeKey, currentTime.toString());
+
+        // This is the first observation that an update is needed, so we return true (update is delayed)
+        return true;
+    }
+
+    async resetUpdateDelay(contract: BaseContract, token: string): Promise<void> {
+        if (this.updateDelay <= 0) {
+            // No update delay configured, so no need to reset it
+            return;
+        }
+
+        console.log("Resetting update delay for contract: " + contract.address + " (token: " + token + ")");
+
+        const storeKey = this.chain + "." + contract.address + "." + token + ".updateNeededSince";
+
+        await this.store.del(storeKey);
+    }
+
     async handleLaUpdate(liquidityAccumulator: LiquidityAccumulator, token: string) {
         const updateData = ethers.utils.hexZeroPad(token, 32);
 
@@ -314,6 +367,11 @@ export class AdrastiaUpdater {
                 if (!(await this.accumulatorNeedsCriticalUpdate(liquidityAccumulator, token))) {
                     return;
                 }
+            }
+
+            if (await this.updateIsDelayed(liquidityAccumulator, token)) {
+                // Update is delayed. Do not update.
+                return;
             }
 
             console.log("Updating liquidity accumulator:", liquidityAccumulator.address);
@@ -337,6 +395,8 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
+        } else {
+            this.resetUpdateDelay(liquidityAccumulator, token);
         }
     }
 
@@ -568,6 +628,11 @@ export class AdrastiaUpdater {
                 }
             }
 
+            if (await this.updateIsDelayed(priceAccumulator, token.address)) {
+                // Update is delayed. Do not update.
+                return;
+            }
+
             console.log("Updating price accumulator:", priceAccumulator.address);
 
             var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
@@ -593,6 +658,8 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
+        } else {
+            this.resetUpdateDelay(priceAccumulator, token.address);
         }
     }
 
@@ -646,6 +713,11 @@ export class AdrastiaUpdater {
                 }
             }
 
+            if (await this.updateIsDelayed(oracle, token)) {
+                // Update is delayed. Do not update.
+                return;
+            }
+
             console.log("Updating oracle:", oracle.address);
 
             if (!this.dryRun) {
@@ -658,6 +730,8 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
+        } else {
+            this.resetUpdateDelay(oracle, token);
         }
     }
 
@@ -708,9 +782,19 @@ export async function run(
     useGasLimit: number,
     onlyCritical: boolean,
     dryRun: boolean,
-    handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>
+    handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>,
+    updateDelay: number
 ) {
-    const updater = new AdrastiaUpdater(chain, signer, store, useGasLimit, onlyCritical, dryRun, handleUpdateTx);
+    const updater = new AdrastiaUpdater(
+        chain,
+        signer,
+        store,
+        useGasLimit,
+        onlyCritical,
+        dryRun,
+        handleUpdateTx,
+        updateDelay
+    );
 
     for (const oracleConfig of oracleConfigs) {
         if (!oracleConfig.enabled) continue;
@@ -754,7 +838,8 @@ export async function handler(event) {
         txConfig.gasLimit,
         target.type === "critical",
         config.dryRun,
-        undefined
+        undefined,
+        target.delay
     );
 }
 
@@ -769,7 +854,8 @@ async function runRepeat(
     mode: string,
     batch: number,
     repeatInterval: number,
-    repeatTimes: number
+    repeatTimes: number,
+    updateDelay: number
 ) {
     const chainConfig = config.chains[chain];
     const txConfig = chainConfig.txConfig[mode];
@@ -797,7 +883,8 @@ async function runRepeat(
                 txConfig.gasLimit,
                 mode === "critical",
                 config.dryRun,
-                undefined
+                undefined,
+                updateDelay
             );
         } catch (e) {
             console.error(e);
@@ -833,6 +920,13 @@ if (require.main === module) {
                 type: "number",
                 default: 1,
             },
+            delay: {
+                description:
+                    "The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent",
+                alias: "d",
+                type: "number",
+                default: 0,
+            },
         })
         .help()
         .alias("help", "h").argv;
@@ -862,7 +956,8 @@ if (require.main === module) {
                 "normal",
                 argv.batch,
                 argv.every,
-                Number.MAX_SAFE_INTEGER
+                Number.MAX_SAFE_INTEGER,
+                argv.delay
             )
                 .then(() => process.exit(0))
                 .catch((error: Error) => {
@@ -870,7 +965,7 @@ if (require.main === module) {
                     process.exit(1);
                 });
         } else {
-            runRepeat(store, { apiKey, apiSecret }, argv.chain, "normal", argv.batch, 0, 1)
+            runRepeat(store, { apiKey, apiSecret }, argv.chain, "normal", argv.batch, 0, 1, argv.delay)
                 .then(() => process.exit(0))
                 .catch((error: Error) => {
                     console.error(error);

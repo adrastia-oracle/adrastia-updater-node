@@ -35,6 +35,13 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         types.int,
         true
     )
+    .addParam(
+        "delay",
+        "The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent.",
+        0,
+        types.int,
+        true
+    )
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
@@ -53,6 +60,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - every: ${taskArgs.every}`);
         console.log(`  - dryRun: ${taskArgs.dryRun}`);
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
+        console.log(`  - delay: ${taskArgs.delay}`);
 
         const repeatInterval = taskArgs.every ?? 0;
         const repeatTimes = taskArgs.every === undefined ? 1 : Number.MAX_SAFE_INTEGER;
@@ -76,7 +84,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     txConfig.gasLimit,
                     taskArgs.mode === "critical",
                     taskArgs.dryRun,
-                    updateTxHandler.handleUpdateTx.bind(updateTxHandler)
+                    updateTxHandler.handleUpdateTx.bind(updateTxHandler),
+                    taskArgs.delay
                 );
             } catch (e) {
                 console.error(e);
