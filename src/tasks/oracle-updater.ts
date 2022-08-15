@@ -395,9 +395,9 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
-        } else {
-            this.resetUpdateDelay(liquidityAccumulator, token);
         }
+
+        await this.resetUpdateDelay(liquidityAccumulator, token);
     }
 
     calculateChange(a: BigNumber, b: BigNumber, changePrecision: BigNumber) {
@@ -658,9 +658,9 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
-        } else {
-            this.resetUpdateDelay(priceAccumulator, token.address);
         }
+
+        await this.resetUpdateDelay(priceAccumulator, token.address);
     }
 
     async getOraclePeriod(oracle: AggregatedOracle): Promise<number> {
@@ -730,9 +730,9 @@ export class AdrastiaUpdater {
                     await this.handleUpdateTx(updateTx, this.signer);
                 }
             }
-        } else {
-            this.resetUpdateDelay(oracle, token);
         }
+
+        await this.resetUpdateDelay(oracle, token);
     }
 
     async keepUpdated(oracleAddress: string, token: TokenConfig) {
