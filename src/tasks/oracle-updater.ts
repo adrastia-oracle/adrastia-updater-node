@@ -573,9 +573,7 @@ export class AdrastiaUpdater {
 
             if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
                 validated = true;
-
-                // Use the average of the two prices for on-chain validation
-                usePrice = apiPrice.add(accumulatorPrice).div(2);
+                usePrice = accumulatorPrice;
             }
         } catch (e) {
             console.error(e);
