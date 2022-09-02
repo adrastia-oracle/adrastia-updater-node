@@ -314,7 +314,14 @@ export class AdrastiaUpdater {
 
         console.log("Checking if accumulator update is delayed: " + contract.address + " (token: " + token + ")");
 
-        const storeKey = this.chain + "." + contract.address + "." + token + ".updateNeededSince";
+        const storeKey =
+            this.chain +
+            "." +
+            contract.address +
+            "." +
+            token +
+            ".updateNeededSince" +
+            (this.onlyCritical ? ".critical" : "");
         const timeFromStore = await this.store.get(storeKey);
 
         const currentTime = Math.floor(Date.now() / 1000); // unix timestamp
@@ -353,7 +360,14 @@ export class AdrastiaUpdater {
 
         console.log("Resetting update delay for contract: " + contract.address + " (token: " + token + ")");
 
-        const storeKey = this.chain + "." + contract.address + "." + token + ".updateNeededSince";
+        const storeKey =
+            this.chain +
+            "." +
+            contract.address +
+            "." +
+            token +
+            ".updateNeededSince" +
+            (this.onlyCritical ? ".critical" : "");
 
         await this.store.del(storeKey);
     }
