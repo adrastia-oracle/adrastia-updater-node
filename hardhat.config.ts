@@ -171,6 +171,15 @@ const config: HardhatUserConfig = {
             },
             gasMultiplier: 1.25,
         },
+        evmos: {
+            url: process.env.EVMOS_URL,
+            accounts: {
+                mnemonic: process.env.EVMOS_MNEMONIC,
+                path: process.env.EVMOS_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.EVMOS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
     },
 };
 
