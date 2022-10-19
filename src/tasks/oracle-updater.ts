@@ -125,7 +125,6 @@ export class AdrastiaUpdater {
         });
 
         this.axiosInstance = axios.create({
-            baseURL: "https://api.binance.com",
             adapter: axiosCache.adapter,
         });
 
@@ -514,7 +513,7 @@ export class AdrastiaUpdater {
 
         for (const route of token.validation.routes) {
             await this.axiosInstance
-                .get("/api/v3/ticker/price", {
+                .get((route.source ?? "https://api.binance.com") + "/api/v3/ticker/price", {
                     params: {
                         symbol: route.symbol,
                     },

@@ -1,6 +1,7 @@
 export type ValidationRoute = {
     symbol: string;
     reverse: boolean;
+    source?: string;
 };
 
 export type TokenConfig = {
