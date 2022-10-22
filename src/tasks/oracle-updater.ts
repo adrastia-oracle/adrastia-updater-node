@@ -592,7 +592,9 @@ export class AdrastiaUpdater {
             console.error(e);
         }
 
-        if (!validated) {
+        // Forceful validation disabled. Attacks can be performed when the time since last update approaches the max
+        // update delay. Stale data is preferred over inaccurate data. Consumers can always use fallback oracles.
+        /*if (!validated) {
             const timeSinceLastUpdate = await accumulator.timeSinceLastUpdate(updateData);
             const maxUpdateDelay = await this.getAccumulatorMaxUpdateDelay(accumulator);
             if (timeSinceLastUpdate.gte(maxUpdateDelay)) {
@@ -610,7 +612,7 @@ export class AdrastiaUpdater {
                 validated = true;
                 usePrice = accumulatorPrice;
             }
-        }
+        }*/
 
         if (!validated) {
             console.log("Price validation failed (exceeds " + token.validation.allowedChangeBps + " bps)");
