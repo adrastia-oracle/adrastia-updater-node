@@ -16,11 +16,11 @@ import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/accumula
 
 // Import ABIs
 import { abi as IERC165_ABI } from "@openzeppelin-v4/contracts/build/contracts/IERC165.json";
-import { abi as AGGREGATED_ORACLE_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/oracles/AggregatedOracle.sol/AggregatedOracle.json";
-import { abi as PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/accumulators/PriceAccumulator.sol/PriceAccumulator.json";
-import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/accumulators/LiquidityAccumulator.sol/LiquidityAccumulator.json";
-import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
-import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@pythia-oracle/pythia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
+import { abi as AGGREGATED_ORACLE_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/oracles/AggregatedOracle.sol/AggregatedOracle.json";
+import { abi as PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/accumulators/PriceAccumulator.sol/PriceAccumulator.json";
+import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/accumulators/LiquidityAccumulator.sol/LiquidityAccumulator.json";
+import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
+import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 
 // Import config
 import config, { OracleConfig, TokenConfig } from "../../adrastia.config";
