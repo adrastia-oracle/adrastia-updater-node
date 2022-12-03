@@ -571,7 +571,8 @@ export class AdrastiaUpdater {
                     params: {
                         symbol: route.symbol,
                     },
-                    validateStatus: () => true, // Never throw an error... they're handled below
+                    validateStatus: () => true, // Never throw an error... they're handled below,
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     const rateLimitedButHasCache =
@@ -622,6 +623,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://api.exchange.coinbase.com") + "/products/" + route.symbol + "/ticker", {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -669,6 +671,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://api-pub.bitfinex.com") + "/v2/ticker/t" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -720,6 +723,7 @@ export class AdrastiaUpdater {
                         route.symbol,
                     {
                         validateStatus: () => true, // Never throw an error... they're handled below
+                        timeout: 5000, // timeout after 5 seconds
                     }
                 )
                 .then(async function (response: AxiosResponse) {
@@ -768,6 +772,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://www.bitstamp.net") + "/api/v2/ticker/" + route.symbol + "/", {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -815,6 +820,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://api.huobi.pro") + "/market/trade?symbol=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -862,6 +868,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://api.coinex.com") + "/v1/market/ticker?market=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -909,6 +916,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://api.kraken.com") + "/0/public/Ticker?pair=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -975,6 +983,7 @@ export class AdrastiaUpdater {
             await this.axiosInstance
                 .get((route.source ?? "https://coins.llama.fi") + "/prices/current/" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
+                    timeout: 5000, // timeout after 5 seconds
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
