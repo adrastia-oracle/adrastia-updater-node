@@ -23,7 +23,7 @@ import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 
 // Import config
-import config, { OracleConfig, TokenConfig } from "../../adrastia.config";
+import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
 import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 import { AggregatedOracle } from "../../typechain/oracles";
@@ -72,6 +72,63 @@ class DefenderAxiosStore {
     }
 }
 
+const median = (arr: number[]): number | undefined => {
+    if (!arr.length) return undefined;
+    const s = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2.0 : s[mid];
+};
+
+const sum = (arr): number => {
+    return arr.reduce(function (previous, current) {
+        return previous + current;
+    });
+};
+
+const weightedMedian = (values: number[], weights: number[]): number => {
+    var midpoint = 0.5 * sum(weights);
+
+    var cumulativeWeight = 0;
+    var belowMidpointIndex = 0;
+
+    var sortedValues = [];
+    var sortedWeights = [];
+
+    values
+        .map(function (value, i) {
+            return [value, weights[i]];
+        })
+        .sort(function (a, b) {
+            return a[0] - b[0];
+        })
+        .map(function (pair) {
+            sortedValues.push(pair[0]);
+            sortedWeights.push(pair[1]);
+        });
+
+    if (
+        sortedWeights.some(function (value) {
+            return value > midpoint;
+        })
+    ) {
+        return sortedValues[sortedWeights.indexOf(Math.max.apply(null, sortedWeights))];
+    }
+
+    while (cumulativeWeight <= midpoint) {
+        belowMidpointIndex++;
+        cumulativeWeight += sortedWeights[belowMidpointIndex - 1];
+    }
+
+    cumulativeWeight -= sortedWeights[belowMidpointIndex - 1];
+
+    if (cumulativeWeight - midpoint < Number.EPSILON) {
+        var bounds = sortedValues.slice(belowMidpointIndex - 2, belowMidpointIndex);
+        return sum(bounds) / bounds.length;
+    }
+
+    return sortedValues[belowMidpointIndex - 1];
+};
+
 export class AdrastiaUpdater {
     // Interface IDs
     static IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
@@ -117,6 +174,7 @@ export class AdrastiaUpdater {
             },
             // Attempt reading stale cache data when we're being rate limited
             readOnError: (error, request) => {
+                console.log(error);
                 return error.response.status == 429 /* back-off warning */ || error.response.status == 418 /* IP ban */;
             },
             // Deactivate `clearOnStale` option so that we can actually read stale cache data
@@ -503,15 +561,11 @@ export class AdrastiaUpdater {
         return maxUpdateDelay;
     }
 
-    async fetchOffchainPrice(token: TokenConfig) {
+    async fetchBinancePrice(routes: ValidationRoute[]) {
         var price = 1.0;
-        var priceSet = false;
+        var hasPrice = false;
 
-        if (token.validation.routes.length == 0) {
-            throw new Error("Token validation has no routes");
-        }
-
-        for (const route of token.validation.routes) {
+        for (const route of routes) {
             await this.axiosInstance
                 .get((route.source ?? "https://api.binance.com") + "/api/v3/ticker/price", {
                     params: {
@@ -526,8 +580,8 @@ export class AdrastiaUpdater {
                     if ((response.status >= 200 && response.status < 400) || rateLimitedButHasCache) {
                         var tickerPrice = parseFloat(response.data["price"]);
 
-                        if (tickerPrice == 0) {
-                            throw new Error("Ticker price is 0");
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Binance");
                         }
 
                         if (route.reverse) {
@@ -535,7 +589,7 @@ export class AdrastiaUpdater {
                         }
 
                         price *= tickerPrice;
-                        priceSet = true;
+                        hasPrice = true;
                     } else {
                         const responseBody = response.data ? JSON.stringify(response.data) : "";
 
@@ -553,11 +607,399 @@ export class AdrastiaUpdater {
                 });
         }
 
-        if (!priceSet) {
-            throw new Error("No price set");
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Binance");
         }
 
         return price;
+    }
+
+    async fetchCoinbasePrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://api.exchange.coinbase.com") + "/products/" + route.symbol + "/ticker", {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["price"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Coinbase");
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Coinbase API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Coinbase");
+        }
+
+        return price;
+    }
+
+    async fetchBitfinixPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://api-pub.bitfinex.com") + "/v2/ticker/t" + route.symbol, {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data[6]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Bitfinix");
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Bitfinix API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Bitfinix");
+        }
+
+        return price;
+    }
+
+    async fetchKucoinPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get(
+                    (route.source ?? "https://api.kucoin.com") +
+                        "/api/v1/market/orderbook/level1?symbol=" +
+                        route.symbol,
+                    {
+                        validateStatus: () => true, // Never throw an error... they're handled below
+                    }
+                )
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["data"]["price"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Kucoin for symbol: " + route.symbol);
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Kucoin API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Kucoin");
+        }
+
+        return price;
+    }
+
+    async fetchBitstampPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://www.bitstamp.net") + "/api/v2/ticker/" + route.symbol + "/", {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["last"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Bitstamp for symbol: " + route.symbol);
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Bitstamp API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Bitstamp");
+        }
+
+        return price;
+    }
+
+    async fetchKrakenPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://api.kraken.com") + "/0/public/Ticker?pair=" + route.symbol, {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        if (response.data["error"] && response.data["error"].length > 0) {
+                            throw new Error(
+                                "Kraken API responded with error: " + JSON.stringify(response.data["error"])
+                            );
+                        }
+
+                        if (!response.data["result"]) {
+                            throw new Error("Kraken API did not return a result");
+                        }
+
+                        if (!response.data["result"][route.symbol]) {
+                            throw new Error(
+                                "Kraken API did not return price for symbol " +
+                                    route.symbol +
+                                    ": " +
+                                    JSON.stringify(response.data["result"])
+                            );
+                        }
+
+                        var tickerPrice = parseFloat(response.data["result"][route.symbol]["c"][0]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Kraken");
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Kraken API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Kraken");
+        }
+
+        return price;
+    }
+
+    async fetchLlamaPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://coins.llama.fi") + "/prices/current/" + route.symbol, {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["coins"][route.symbol]["price"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Llama");
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Llama API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from DefiLlama");
+        }
+
+        return price;
+    }
+
+    async fetchOffchainPrice(token: TokenConfig) {
+        var prices: number[] = [];
+        var weights: number[] = [];
+
+        var sumWeights = 0;
+
+        if (token.validation.sources.length == 0) {
+            throw new Error("Token validation has no sources");
+        }
+
+        var sourceIndex = 0;
+
+        for (const source of token.validation.sources) {
+            var price = 1.0;
+            var hasPrice = false;
+
+            try {
+                if (source.type === "binance") {
+                    price = await this.fetchBinancePrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Binance price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "bitfinix") {
+                    price = await this.fetchBitfinixPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Bitfinix price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "bitstamp") {
+                    price = await this.fetchBitstampPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Bitstamp price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "coinbase") {
+                    price = await this.fetchCoinbasePrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Coinbase price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "kucoin") {
+                    price = await this.fetchKucoinPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Kucoin price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "llama") {
+                    price = await this.fetchLlamaPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Llama price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "kraken") {
+                    price = await this.fetchKrakenPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Kraken price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else {
+                    throw new Error("Unknown source type: " + source.type);
+                }
+            } catch (e) {
+                console.log("Error fetching price from source: " + e.message);
+            }
+
+            if (hasPrice) {
+                prices.push(price);
+                weights.push(source.weight);
+                sumWeights += source.weight;
+            }
+
+            ++sourceIndex;
+        }
+
+        if (prices.length == 0) {
+            throw new Error("No price set");
+        } else if (sumWeights < token.validation.minimumWeight) {
+            throw new Error(
+                "Weight is too low: " +
+                    sumWeights.toString() +
+                    ", minimum: " +
+                    token.validation.minimumWeight.toString()
+            );
+        }
+
+        return weightedMedian(prices, weights);
     }
 
     async validatePrice(accumulator: PriceAccumulator, accumulatorPrice: BigNumber, token: TokenConfig) {

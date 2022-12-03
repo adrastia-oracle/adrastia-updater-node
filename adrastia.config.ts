@@ -1,3 +1,9 @@
+export type ValidationSource = {
+    weight: number;
+    type: "binance" | "llama" | "kraken" | "coinbase" | "kucoin" | "bitstamp" | "bitfinix";
+    routes: ValidationRoute[];
+};
+
 export type ValidationRoute = {
     symbol: string;
     reverse: boolean;
@@ -9,7 +15,8 @@ export type TokenConfig = {
     address: string;
     validation: {
         enabled: boolean;
-        routes: ValidationRoute[];
+        minimumWeight: number;
+        sources: ValidationSource[];
         allowedChangeBps: number;
     };
     batch: number;
@@ -50,7 +57,7 @@ const config: AdrastiaConfig = {
     target: {
         chain: "polygon",
         type: "normal",
-        batch: 1,
+        batch: 0,
         delay: 0, // The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent
     },
     dryRun: true,
@@ -78,325 +85,126 @@ const config: AdrastiaConfig = {
                             address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH
                             validation: {
                                 enabled: true,
-                                routes: [
+                                minimumWeight: 8,
+                                sources: [
                                     {
-                                        symbol: "ETHUSDC",
-                                        reverse: false,
+                                        weight: 8,
+                                        type: "binance", // Binance
+                                        routes: [
+                                            {
+                                                symbol: "ETHBUSD", // ETH -> BUSD (1:1 w/ USDC)
+                                                reverse: false,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "binance", // MEXC Exchange
+                                        routes: [
+                                            {
+                                                symbol: "ETHUSDT", // ETH -> USDT
+                                                reverse: false,
+                                                source: "https://api.mexc.com",
+                                            },
+                                            {
+                                                symbol: "USDCUSDT", // USDT -> USDC
+                                                reverse: true,
+                                                source: "https://api.mexc.com",
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 6,
+                                        type: "kraken", // Kraken
+                                        routes: [
+                                            {
+                                                symbol: "XETHZUSD", // ETH -> USD
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "USDCUSD", // USD -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 6,
+                                        type: "coinbase", // Coinbase
+                                        routes: [
+                                            {
+                                                symbol: "ETH-USD", // ETH -> USD
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "USDT-USD", // USD -> USDT
+                                                reverse: true,
+                                            },
+                                            {
+                                                symbol: "USDT-USDC", // USDT -> USDC
+                                                reverse: false,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "kucoin", // Kucoin
+                                        routes: [
+                                            {
+                                                symbol: "ETH-USDT", // ETH -> USDT
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "USDT-USDC", // USDT -> USDC
+                                                reverse: false,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "bitstamp", // Bitstamp
+                                        routes: [
+                                            {
+                                                symbol: "ethusd", // ETH -> USD
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "usdcusd", // USD -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "bitfinix", // Bitfinix
+                                        routes: [
+                                            {
+                                                symbol: "ETHUSD", // ETH -> USD
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "UDCUSD", // USD -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 10,
+                                        type: "llama", // DefiLlama
+                                        routes: [
+                                            {
+                                                symbol: "polygon:0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH -> USD
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "polygon:0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USD -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
                                     },
                                 ],
                                 allowedChangeBps: 100,
                             },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", // WMATIC
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "MATICUSDT",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "USDCUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // USDT
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "USDCUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-                {
-                    enabled: true,
-                    address: "0xB284ed29FfC44d62F382202A9232EE8d5AcaebEf", // Aggregated oracle WETH
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6", // WBTC
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "WBTCETH",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", // WMATIC
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "MATICETH",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0xd6df932a45c0f255f85145f286ea0b292b21c90b", // AAVE
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "AAVEETH",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-                {
-                    enabled: true,
-                    address: "0x49fdef7a903bBe540b1E79Bb2AfE6645B393Bdb4", // Aggregated oracle WMATIC
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0xbbba073c31bf03b8acf7c28ef0738decf3695683", // SAND
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "SANDUSDT",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "MATICUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0x3a58a54c066fdc0f2d55fc9c89f0415c92ebf3c4", // stMATIC
-                            validation: {
-                                enabled: false,
-                                routes: [],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0x831753dd7087cac61ab5644b308642cc1c33dc13", // QUICK
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "QUICKUSDT",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "MATICUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-            ],
-        },
-        arbitrumOne: {
-            txConfig: {
-                normal: {
-                    speed: "fast",
-                    validFor: 120,
-                    gasLimit: 1000000,
-                },
-                critical: {
-                    speed: "fastest",
-                    validFor: 60,
-                    gasLimit: 1000000,
-                },
-            },
-            oracles: [
-                {
-                    enabled: true,
-                    address: "0x138b866d20349fc522cFBFA64335829BA547681b", // Aggregated oracle USDC
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0x82af49447d8a07e3bd95bd0d56f35241523fbab1", // WETH
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "ETHUSDC",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-            ],
-        },
-        avalanche: {
-            txConfig: {
-                normal: {
-                    speed: "fast",
-                    validFor: 120,
-                    gasLimit: 1000000,
-                },
-                critical: {
-                    speed: "fastest",
-                    validFor: 60,
-                    gasLimit: 1000000,
-                },
-            },
-            oracles: [
-                {
-                    enabled: true,
-                    address: "0x138b866d20349fc522cFBFA64335829BA547681b", // Aggregated oracle USDC
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7", // WAVAX
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "AVAXUSDT",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "USDCUSDT",
-                                        reverse: true,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                        {
-                            enabled: true,
-                            address: "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab", // WETH.e
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "ETHUSDC",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-            ],
-        },
-        bsc: {
-            txConfig: {
-                normal: {
-                    speed: "fast",
-                    validFor: 120,
-                    gasLimit: 1000000,
-                },
-                critical: {
-                    speed: "fastest",
-                    validFor: 60,
-                    gasLimit: 1000000,
-                },
-            },
-            oracles: [
-                {
-                    enabled: true,
-                    address: "0xeDA407758c98A4bC34763e6A9DFF7313f817C7d6", // Aggregated oracle BUSD
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", // WBNB
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "BNBUSDC",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
-                        },
-                    ],
-                },
-            ],
-        },
-        optimism: {
-            txConfig: {
-                normal: {
-                    speed: "fast",
-                    validFor: 120,
-                    gasLimit: 1000000,
-                },
-                critical: {
-                    speed: "fastest",
-                    validFor: 60,
-                    gasLimit: 1000000,
-                },
-            },
-            oracles: [
-                {
-                    enabled: true,
-                    address: "0x127EE750A56A64c39c2d7abb30d221c51cEDBe12", // Uniswap v3 (3%) Oracle DAI
-                    tokens: [
-                        {
-                            enabled: true,
-                            address: "0x4200000000000000000000000000000000000006", // WETH
-                            validation: {
-                                enabled: true,
-                                routes: [
-                                    {
-                                        symbol: "ETHUSDT",
-                                        reverse: false,
-                                    },
-                                    {
-                                        symbol: "USDTDAI",
-                                        reverse: false,
-                                    },
-                                ],
-                                allowedChangeBps: 100,
-                            },
-                            batch: 1,
+                            batch: 0,
                         },
                     ],
                 },
