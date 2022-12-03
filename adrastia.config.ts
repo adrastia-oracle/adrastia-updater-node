@@ -1,6 +1,6 @@
 export type ValidationSource = {
     weight: number;
-    type: "binance" | "llama" | "kraken" | "coinbase" | "kucoin" | "bitstamp" | "bitfinix";
+    type: "binance" | "llama" | "kraken" | "coinbase" | "kucoin" | "bitstamp" | "bitfinix" | "huobi" | "coinex";
     routes: ValidationRoute[];
 };
 
@@ -183,6 +183,34 @@ const config: AdrastiaConfig = {
                                             },
                                             {
                                                 symbol: "UDCUSD", // USD -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "huobi", // Huobi
+                                        routes: [
+                                            {
+                                                symbol: "ethusdt", // ETH -> USDT
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "usdcusdt", // USDT -> USDC
+                                                reverse: true,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        weight: 1,
+                                        type: "coinex", // CoinEx
+                                        routes: [
+                                            {
+                                                symbol: "ETHUSDT", // ETH -> USDT
+                                                reverse: false,
+                                            },
+                                            {
+                                                symbol: "USDCUSDT", // USDT -> USDC
                                                 reverse: true,
                                             },
                                         ],

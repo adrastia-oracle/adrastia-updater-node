@@ -807,6 +807,100 @@ export class AdrastiaUpdater {
         return price;
     }
 
+    async fetchHuobiPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://api.huobi.pro") + "/market/trade?symbol=" + route.symbol, {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["tick"]?.["data"]?.[0]?.["price"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Huobi for symbol: " + route.symbol);
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Huobi API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Huobi");
+        }
+
+        return price;
+    }
+
+    async fetchCoinExPrice(routes: ValidationRoute[]) {
+        var price = 1.0;
+        var hasPrice = false;
+
+        for (const route of routes) {
+            await this.axiosInstance
+                .get((route.source ?? "https://api.coinex.com") + "/v1/market/ticker?market=" + route.symbol, {
+                    validateStatus: () => true, // Never throw an error... they're handled below
+                })
+                .then(async function (response: AxiosResponse) {
+                    if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
+                        var tickerPrice = parseFloat(response.data["data"]?.["ticker"]?.["last"]);
+
+                        if (tickerPrice == 0 || isNaN(tickerPrice)) {
+                            throw new Error("Cannot parse price from Huobi for symbol: " + route.symbol);
+                        }
+
+                        if (route.reverse) {
+                            tickerPrice = 1.0 / tickerPrice;
+                        }
+
+                        price *= tickerPrice;
+                        hasPrice = true;
+                    } else {
+                        const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                        throw new Error(
+                            "Huobi API responded with error " +
+                                response.status +
+                                " for symbol " +
+                                route.symbol +
+                                ": " +
+                                response.statusText +
+                                ". Response body: " +
+                                responseBody
+                        );
+                    }
+                });
+        }
+
+        if (!hasPrice) {
+            throw new Error("Could not fetch price from Huobi");
+        }
+
+        return price;
+    }
+
     async fetchKrakenPrice(routes: ValidationRoute[]) {
         var price = 1.0;
         var hasPrice = false;
@@ -942,6 +1036,16 @@ export class AdrastiaUpdater {
                     hasPrice = true;
 
                     console.log("Binance price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "huobi") {
+                    price = await this.fetchHuobiPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("Huobi price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
+                } else if (source.type === "coinex") {
+                    price = await this.fetchCoinExPrice(source.routes);
+                    hasPrice = true;
+
+                    console.log("CoinEx price =", price.toString() + " (index = " + sourceIndex.toString() + ")");
                 } else if (source.type === "bitfinix") {
                     price = await this.fetchBitfinixPrice(source.routes);
                     hasPrice = true;
