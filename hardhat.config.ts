@@ -11,6 +11,7 @@ import { UpdateTransactionHandler } from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
 
 import "log-timestamp";
+import { AxiosProxyConfig } from "axios";
 
 dotenv.config();
 
@@ -54,6 +55,22 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const updateTxHandler = new UpdateTransactionHandler(transactionTimeout);
 
+        var proxyConfig: AxiosProxyConfig;
+
+        if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+            proxyConfig = {
+                host: process.env.PROXY_HOST,
+                port: parseInt(process.env.PROXY_PORT),
+                auth:
+                    process.env.PROXY_USERNAME || process.env.PROXY_PASSWORD
+                        ? {
+                              username: process.env.PROXY_USERNAME ?? "",
+                              password: process.env.PROXY_PASSWORD ?? "",
+                          }
+                        : undefined,
+            };
+        }
+
         console.log("Starting the oracle updater with the following parameters:");
         console.log(`  - batch: ${taskArgs.batch}`);
         console.log(`  - mode: ${taskArgs.mode}`);
@@ -61,6 +78,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - dryRun: ${taskArgs.dryRun}`);
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
         console.log(`  - delay: ${taskArgs.delay}`);
+
+        if (proxyConfig !== undefined) {
+            console.log(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
+        }
 
         const repeatInterval = taskArgs.every ?? 0;
         const repeatTimes = taskArgs.every === undefined ? 1 : Number.MAX_SAFE_INTEGER;
@@ -85,7 +106,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     taskArgs.mode === "critical",
                     taskArgs.dryRun,
                     updateTxHandler.handleUpdateTx.bind(updateTxHandler),
-                    taskArgs.delay
+                    taskArgs.delay,
+                    proxyConfig
                 );
             } catch (e) {
                 console.error(e);

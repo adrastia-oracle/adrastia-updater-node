@@ -28,7 +28,7 @@ import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 import { AggregatedOracle } from "../../typechain/oracles";
 
-import axios, { AxiosInstance, AxiosResponse } from "axios";
+import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
 import axiosRetry from "axios-retry";
 import { setupCache } from "axios-cache-adapter";
 import { IKeyValueStore } from "../util/key-value-store";
@@ -147,6 +147,8 @@ export class AdrastiaUpdater {
 
     axiosInstance: AxiosInstance;
 
+    proxyConfig?: AxiosProxyConfig;
+
     constructor(
         chain: string,
         signer: Signer,
@@ -155,7 +157,8 @@ export class AdrastiaUpdater {
         onlyCritical: boolean,
         dryRun: boolean,
         handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>,
-        updateDelay: number
+        updateDelay: number,
+        proxyConfig?: AxiosProxyConfig
     ) {
         this.chain = chain;
         this.signer = signer;
@@ -166,6 +169,8 @@ export class AdrastiaUpdater {
         this.useGasLimit = useGasLimit;
         this.onlyCritical = onlyCritical;
         this.dryRun = dryRun;
+
+        this.proxyConfig = proxyConfig;
 
         const axiosCache = setupCache({
             maxAge: 30 * 1000, // 30 seconds
@@ -572,7 +577,8 @@ export class AdrastiaUpdater {
                         symbol: route.symbol,
                     },
                     validateStatus: () => true, // Never throw an error... they're handled below,
-                    timeout: 5000, // timeout after 5 seconds
+                    timeout: 5000, // timeout after 5 seconds,
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     const rateLimitedButHasCache =
@@ -624,13 +630,19 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://api.exchange.coinbase.com") + "/products/" + route.symbol + "/ticker", {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
                         var tickerPrice = parseFloat(response.data["price"]);
 
                         if (tickerPrice == 0 || isNaN(tickerPrice)) {
-                            throw new Error("Cannot parse price from Coinbase");
+                            throw new Error(
+                                "Cannot parse price from Coinbase for symbol " +
+                                    route.symbol +
+                                    ": " +
+                                    JSON.stringify(response.data)
+                            );
                         }
 
                         if (route.reverse) {
@@ -672,13 +684,19 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://api-pub.bitfinex.com") + "/v2/ticker/t" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
                         var tickerPrice = parseFloat(response.data[6]);
 
                         if (tickerPrice == 0 || isNaN(tickerPrice)) {
-                            throw new Error("Cannot parse price from Bitfinix");
+                            throw new Error(
+                                "Cannot parse price from Bitfinix for symbol " +
+                                    route.symbol +
+                                    ": " +
+                                    JSON.stringify(response.data)
+                            );
                         }
 
                         if (route.reverse) {
@@ -724,6 +742,7 @@ export class AdrastiaUpdater {
                     {
                         validateStatus: () => true, // Never throw an error... they're handled below
                         timeout: 5000, // timeout after 5 seconds
+                        proxy: this.proxyConfig,
                     }
                 )
                 .then(async function (response: AxiosResponse) {
@@ -773,6 +792,7 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://www.bitstamp.net") + "/api/v2/ticker/" + route.symbol + "/", {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -821,6 +841,7 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://api.huobi.pro") + "/market/trade?symbol=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -869,6 +890,7 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://api.coinex.com") + "/v1/market/ticker?market=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -917,6 +939,7 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://api.kraken.com") + "/0/public/Ticker?pair=" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -984,6 +1007,7 @@ export class AdrastiaUpdater {
                 .get((route.source ?? "https://coins.llama.fi") + "/prices/current/" + route.symbol, {
                     validateStatus: () => true, // Never throw an error... they're handled below
                     timeout: 5000, // timeout after 5 seconds
+                    proxy: this.proxyConfig,
                 })
                 .then(async function (response: AxiosResponse) {
                     if ((response.status >= 200 && response.status < 400) || response.request.fromCache) {
@@ -1351,7 +1375,8 @@ export async function run(
     onlyCritical: boolean,
     dryRun: boolean,
     handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>,
-    updateDelay: number
+    updateDelay: number,
+    proxyConfig?: AxiosProxyConfig
 ) {
     const updater = new AdrastiaUpdater(
         chain,
@@ -1361,7 +1386,8 @@ export async function run(
         onlyCritical,
         dryRun,
         handleUpdateTx,
-        updateDelay
+        updateDelay,
+        proxyConfig
     );
 
     for (const oracleConfig of oracleConfigs) {
@@ -1391,11 +1417,30 @@ export async function handler(event) {
         validForSeconds: txConfig.validFor,
     });
 
+    var proxyConfig: AxiosProxyConfig;
+
+    const { PROXY_HOST, PROXY_PORT, PROXY_USERNAME, PROXY_PASSWORD } = event.secrets;
+
+    if (PROXY_HOST && PROXY_PORT) {
+        proxyConfig = {
+            host: PROXY_HOST,
+            port: parseInt(PROXY_PORT),
+            auth:
+                PROXY_USERNAME || PROXY_PASSWORD
+                    ? { username: PROXY_USERNAME ?? "", password: PROXY_PASSWORD ?? "" }
+                    : undefined,
+        };
+    }
+
     const oracleConfigs: OracleConfig[] = chainConfig.oracles;
 
     const store: KeyValueStoreClient = new KeyValueStoreClient(event);
 
     console.log(`Running batch ${target.batch} for target chain: ${target.chain}`);
+
+    if (proxyConfig) {
+        console.log(`Using proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
+    }
 
     await run(
         oracleConfigs,
@@ -1407,7 +1452,8 @@ export async function handler(event) {
         target.type === "critical",
         config.dryRun,
         undefined,
-        target.delay
+        target.delay,
+        proxyConfig
     );
 }
 
@@ -1423,7 +1469,8 @@ async function runRepeat(
     batch: number,
     repeatInterval: number,
     repeatTimes: number,
-    updateDelay: number
+    updateDelay: number,
+    proxyConfig?: AxiosProxyConfig
 ) {
     const chainConfig = config.chains[chain];
     const txConfig = chainConfig.txConfig[mode];
@@ -1452,7 +1499,8 @@ async function runRepeat(
                 mode === "critical",
                 config.dryRun,
                 undefined,
-                updateDelay
+                updateDelay,
+                proxyConfig
             );
         } catch (e) {
             console.error(e);
@@ -1514,6 +1562,19 @@ if (require.main === module) {
             apiSecret = process.env.API_SECRET as string;
         }
 
+        var proxyConfig: AxiosProxyConfig;
+
+        if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+            proxyConfig = {
+                host: process.env.PROXY_HOST,
+                port: parseInt(process.env.PROXY_PORT),
+                auth:
+                    process.env.PROXY_USERNAME || process.env.PROXY_PASSWORD
+                        ? { username: process.env.PROXY_USERNAME ?? "", password: process.env.PROXY_PASSWORD ?? "" }
+                        : undefined,
+            };
+        }
+
         const store = new KeyValueStoreClient({ path: "store.json.tmp" });
 
         if (argv.every) {
@@ -1525,7 +1586,8 @@ if (require.main === module) {
                 argv.batch,
                 argv.every,
                 Number.MAX_SAFE_INTEGER,
-                argv.delay
+                argv.delay,
+                proxyConfig
             )
                 .then(() => process.exit(0))
                 .catch((error: Error) => {
@@ -1533,7 +1595,7 @@ if (require.main === module) {
                     process.exit(1);
                 });
         } else {
-            runRepeat(store, { apiKey, apiSecret }, argv.chain, "normal", argv.batch, 0, 1, argv.delay)
+            runRepeat(store, { apiKey, apiSecret }, argv.chain, "normal", argv.batch, 0, 1, argv.delay, proxyConfig)
                 .then(() => process.exit(0))
                 .catch((error: Error) => {
                     console.error(error);
