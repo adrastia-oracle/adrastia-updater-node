@@ -1,14 +1,14 @@
-# Adrastia Defender Autotasks
+# Adrastia Updater Node
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
-A collection of autotasks for use with [OpenZeppelin Defender](https://openzeppelin.com/defender/) to perform Adrastia oracle maintenance.
+A lite-node to perform updates for the Adrastia oracle system.
 
 ## Install
 
 ### Requirements
 
--   node: v14 or later
+-   node: v16 or later
 -   yarn
 -   git
 
@@ -21,13 +21,13 @@ A collection of autotasks for use with [OpenZeppelin Defender](https://openzeppe
 1. Clone the repository
 
 ```console
-git clone git@github.com:adrastia-oracle/adrastia-defender-autotasks.git
+git clone git@github.com:adrastia-oracle/adrastia-updater-node.git
 ```
 
 2. Enter the project folder
 
 ```console
-cd adrastia-defender-autotasks
+cd adrastia-updater-node
 ```
 
 3. Install using yarn
@@ -44,26 +44,38 @@ yarn typechain:generate
 
 ## Usage
 
-### Building autotask scripts
+### Configuration
 
-1. Configure [adrastia.config.js](adrastia.config.js)
-2. Build the autotask scripts for distribution
+1. Copy the [.env.example](.env.example) file to `.env` and modify the values as needed
+2. Configure [adrastia.config.js](adrastia.config.js)
+
+### Standalone application
+
+Execute the `run-oracle-updater` hardhat task. Refer to the usage instructions with the `--help` flag for more information:
+
+```console
+npx hardhat run-oracle-updater --help
+```
+
+#### Run as a systemd service
+
+Refer to the [systemd service](services/README.md) documentation for more information.
+
+### OpenZeppelin Defender autotasks
+
+#### Building autotask scripts
 
 ```console
 yarn build
 ```
 
-### Running locally
-
-1. [Build the autotask scripts](#building-autotask-scripts)
-2. Set the environment variables `API_KEY` and `API_SECRET` to the values corresponding with your [relayer](https://docs.openzeppelin.com/defender/relay) (create one if you haven't already, and make sure to fund it)
-3. Run the script
+#### Running locally
 
 ```console
-yarn start-oracle-updater
+yarn run run start --help
 ```
 
-### Deploying
+#### Deploying
 
 1. [Build the autotask scripts](#building-autotask-scripts)
 2. Create (or modify) an [autotask](https://docs.openzeppelin.com/defender/autotasks) using the generated code in the [dist folder](dist/), such as [dist/tasks/oracle-updater.js](dist/tasks/oracle-updater.js) (make sure to connect and fund your relayer)

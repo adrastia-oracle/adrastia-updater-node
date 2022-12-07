@@ -44,6 +44,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         true
     )
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
+    .addFlag("service", "Enables service mode to communicate with systemd and the watchdog.")
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
@@ -71,6 +72,13 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             };
         }
 
+        const notify = taskArgs.service ? require("sd-notify") : undefined;
+
+        if (taskArgs.service) {
+            // Inform systemd that we are ready to start
+            notify.ready();
+        }
+
         console.log("Starting the oracle updater with the following parameters:");
         console.log(`  - batch: ${taskArgs.batch}`);
         console.log(`  - mode: ${taskArgs.mode}`);
@@ -78,6 +86,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - dryRun: ${taskArgs.dryRun}`);
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
         console.log(`  - delay: ${taskArgs.delay}`);
+        console.log(`  - service: ${taskArgs.service}`);
 
         if (proxyConfig !== undefined) {
             console.log(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
@@ -89,6 +98,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         var timesRepeated = 0;
 
         while (timesRepeated++ < repeatTimes) {
+            if (taskArgs.service) {
+                // Inform systemd that we are still running
+                notify.watchdog();
+            }
+
             try {
                 console.log(
                     `Running batch ${taskArgs.batch} using account '${
@@ -125,7 +139,7 @@ const config: HardhatUserConfig = {
     solidity: "0.8.15",
     networks: {
         hardhat: {
-            forking: {
+            forking: process.env.FORKING_URL && {
                 url: process.env.FORKING_URL,
                 enabled: true,
             },
