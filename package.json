@@ -23,6 +23,7 @@
         "defender-relay-client": "^1.37.0",
         "dotenv": "^16.0.3",
         "ethers": "^5.7.2",
+        "redis": "^4.5.1",
         "sd-notify": "^2.8.0",
         "yargs": "17.6.2"
     },

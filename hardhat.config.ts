@@ -12,6 +12,8 @@ import { run } from "./src/tasks/oracle-updater";
 
 import "log-timestamp";
 import { AxiosProxyConfig } from "axios";
+import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
+import { IKeyValueStore } from "./src/util/key-value-store";
 
 dotenv.config();
 
@@ -48,7 +50,53 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
-        const store = new KeyValueStoreClient({ path: "store.json.tmp" });
+        var store: IKeyValueStore;
+
+        const redisEnabled =
+            process.env.REDIS_ENABLED?.toLowerCase() === "true" ||
+            process.env.REDIS_ENABLED === "1" ||
+            process.env.REDIS_ENABLED?.toLowerCase() === "yes";
+
+        if (redisEnabled) {
+            console.log("Creating Redis client...");
+
+            const redis = require("redis");
+            const redisClient = redis.createClient({
+                host: process.env.REDIS_HOST,
+                port: process.env.REDIS_PORT,
+                username: process.env.REDIS_USERNAME,
+                password: process.env.REDIS_PASSWORD,
+                database: process.env.REDIS_DATABASE,
+            });
+
+            redisClient.on("error", function (error) {
+                console.error("Redis error:", error);
+            });
+
+            redisClient.on("connect", function () {
+                console.log("Redis client is connecting...");
+            });
+
+            redisClient.on("ready", function () {
+                console.log("Redis client is ready.");
+            });
+
+            redisClient.on("end", function () {
+                console.log("Redis client has disconnected.");
+            });
+
+            redisClient.on("reconnecting", function () {
+                console.log("Redis client is reconnecting...");
+            });
+
+            await redisClient.connect();
+
+            console.log("Redis client created.");
+
+            store = new RedisKeyValueStore(redisClient);
+        } else {
+            store = new KeyValueStoreClient({ path: "store.json.tmp" });
+        }
 
         const txConfig = adrastiaConfig.chains[hre.network.name].txConfig[taskArgs.mode];
 
