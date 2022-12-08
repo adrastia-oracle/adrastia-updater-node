@@ -8,6 +8,7 @@ NotifyAccess=all
 User=<user>
 Group=<group>
 Restart=always
+RestartSec=5
 WorkingDirectory=<project-directory>
 ExecStartPre=chmod +x ./services/setup-node.sh
 ExecStartPre=chmod +x ./services/<service-name>.sh
