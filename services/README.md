@@ -6,6 +6,7 @@
 
 -   Any Linux distribution that supports [systemd](https://systemd.io/)
 -   C/C++ tool stack (GCC/Clang, etc...)
+-   Python 3
 -   Follow the installation and usage instructions for the project at the root of this repository
 
 ### Pre-requisites
