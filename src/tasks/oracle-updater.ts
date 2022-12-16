@@ -158,6 +158,7 @@ export class AdrastiaUpdater {
         dryRun: boolean,
         handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>,
         updateDelay: number,
+        httpCacheSeconds: number,
         proxyConfig?: AxiosProxyConfig
     ) {
         this.chain = chain;
@@ -173,7 +174,7 @@ export class AdrastiaUpdater {
         this.proxyConfig = proxyConfig;
 
         const axiosCache = setupCache({
-            maxAge: 30 * 1000, // 30 seconds
+            maxAge: httpCacheSeconds * 1000,
             exclude: {
                 query: false, // Allow caching of requests with query params
             },
@@ -1376,6 +1377,7 @@ export async function run(
     dryRun: boolean,
     handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>,
     updateDelay: number,
+    httpCacheSeconds: number,
     proxyConfig?: AxiosProxyConfig
 ) {
     const updater = new AdrastiaUpdater(
@@ -1387,6 +1389,7 @@ export async function run(
         dryRun,
         handleUpdateTx,
         updateDelay,
+        httpCacheSeconds,
         proxyConfig
     );
 
@@ -1453,6 +1456,7 @@ export async function handler(event) {
         config.dryRun,
         undefined,
         target.delay,
+        config.httpCacheSeconds,
         proxyConfig
     );
 }
@@ -1500,6 +1504,7 @@ async function runRepeat(
                 config.dryRun,
                 undefined,
                 updateDelay,
+                config.httpCacheSeconds,
                 proxyConfig
             );
         } catch (e) {

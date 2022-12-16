@@ -49,6 +49,7 @@ export type AdrastiaConfig = {
         delay: number;
     };
     dryRun: boolean;
+    httpCacheSeconds: number;
     chains: Record<string, ChainConfig>;
 };
 
@@ -60,6 +61,7 @@ const config: AdrastiaConfig = {
         batch: 0,
         delay: 0, // The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent
     },
+    httpCacheSeconds: 30, // The amount of time in seconds that the HTTP cache (used when fetching off-chain prices) is valid for
     dryRun: true,
     chains: {
         polygon: {

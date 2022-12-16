@@ -169,6 +169,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     taskArgs.dryRun,
                     updateTxHandler.handleUpdateTx.bind(updateTxHandler),
                     taskArgs.delay,
+                    adrastiaConfig.httpCacheSeconds,
                     proxyConfig
                 );
             } catch (e) {
