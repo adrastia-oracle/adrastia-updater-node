@@ -11,7 +11,7 @@
         "build": "rollup -c -i src/tasks/oracle-updater.ts -o dist/tasks/oracle-updater.js -f cjs --bundleConfigAsCjs",
         "run": "node dist/tasks/oracle-updater.js",
         "bar": "yarn build && yarn run run",
-        "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain && yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain "
+        "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain/adrastia-core && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain/openzeppelin-v4 && yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain/adrastia-periphery "
     },
     "dependencies": {
         "@adrastia-oracle/adrastia-core": "3.0.0",

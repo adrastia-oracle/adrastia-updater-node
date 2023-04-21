@@ -4,15 +4,15 @@ import { BaseContract, BigNumber, ethers } from "ethers";
 import { Signer } from "@ethersproject/abstract-signer";
 
 // Import typechain
-import { IERC165 } from "../../typechain";
+import { IERC165 } from "../../typechain/openzeppelin-v4";
 import {
     IAccumulator,
     IAggregatedOracle,
     IHasLiquidityAccumulator,
     IHasPriceAccumulator,
     IOracle,
-} from "../../typechain/interfaces";
-import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/accumulators";
+} from "../../typechain/adrastia-core/interfaces";
+import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/adrastia-core/accumulators";
 
 // Import ABIs
 import { abi as IERC165_ABI } from "@openzeppelin-v4/contracts/build/contracts/IERC165.json";
@@ -26,7 +26,7 @@ import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-
 import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
 import { Speed } from "defender-relay-client";
 import { KeyValueStoreClient } from "defender-kvstore-client";
-import { AggregatedOracle } from "../../typechain/oracles";
+import { AggregatedOracle } from "../../typechain/adrastia-core/oracles";
 
 import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
 import axiosRetry from "axios-retry";
