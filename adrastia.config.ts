@@ -20,6 +20,7 @@ export type TokenConfig = {
         allowedChangeBps: number;
     };
     batch: number;
+    extra?: any;
 };
 
 export type OracleConfig = {
@@ -50,6 +51,7 @@ export type AdrastiaConfig = {
     };
     dryRun: boolean;
     httpCacheSeconds: number;
+    type: "dex" | "gas";
     chains: Record<string, ChainConfig>;
 };
 
@@ -63,6 +65,7 @@ const config: AdrastiaConfig = {
     },
     httpCacheSeconds: 30, // The amount of time in seconds that the HTTP cache (used when fetching off-chain prices) is valid for
     dryRun: true,
+    type: "dex",
     chains: {
         polygon: {
             txConfig: {

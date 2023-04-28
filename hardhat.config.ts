@@ -45,6 +45,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         types.int,
         true
     )
+    .addParam("type", "The type of the updater. Either 'dex' or 'gas'.", "dex", types.string, true)
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
     .addFlag("service", "Enables service mode to communicate with systemd and the watchdog.")
     .setAction(async (taskArgs, hre) => {
@@ -135,6 +136,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
         console.log(`  - delay: ${taskArgs.delay}`);
         console.log(`  - service: ${taskArgs.service}`);
+        console.log(`  - type: ${taskArgs.type}`);
 
         if (proxyConfig !== undefined) {
             console.log(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
@@ -170,6 +172,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     updateTxHandler.handleUpdateTx.bind(updateTxHandler),
                     taskArgs.delay,
                     adrastiaConfig.httpCacheSeconds,
+                    taskArgs.type,
                     proxyConfig
                 );
             } catch (e) {

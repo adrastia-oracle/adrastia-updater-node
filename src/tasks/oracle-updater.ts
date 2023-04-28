@@ -221,6 +221,8 @@ export class AdrastiaUpdater {
             const paAddresses = pasFromStore.split(",");
 
             for (const accumulatorAddress of laAddresses) {
+                if (!accumulatorAddress) continue;
+
                 const accumulator: LiquidityAccumulator = new ethers.Contract(
                     accumulatorAddress,
                     LIQUIDITY_ACCUMULATOR_ABI,
@@ -233,6 +235,8 @@ export class AdrastiaUpdater {
             }
 
             for (const accumulatorAddress of paAddresses) {
+                if (!accumulatorAddress) continue;
+
                 const accumulator: PriceAccumulator = new ethers.Contract(
                     accumulatorAddress,
                     PRICE_ACCUMULATOR_ABI,
@@ -1210,10 +1214,29 @@ export class AdrastiaUpdater {
         };
     }
 
-    async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig) {
-        const updateData = ethers.utils.hexZeroPad(token.address, 32);
+    async generatePaCheckUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig) {
+        return ethers.utils.hexZeroPad(token.address, 32);
+    }
 
-        if (this.dryRun || (await priceAccumulator.canUpdate(updateData))) {
+    async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
+        var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
+
+        if (token.validation.enabled) {
+            const validation = await this.validatePrice(priceAccumulator, price, token);
+            if (!validation.validated) {
+                return undefined;
+            }
+
+            price = validation.usePrice;
+        }
+
+        return ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, price]);
+    }
+
+    async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig) {
+        const checkUpdateData = await this.generatePaCheckUpdateData(priceAccumulator, token);
+
+        if (this.dryRun || (await priceAccumulator.canUpdate(checkUpdateData))) {
             if (this.onlyCritical) {
                 // Critical: changePercent >= updateThreshold * 1.5
                 if (!(await this.accumulatorNeedsCriticalUpdate(priceAccumulator, token.address))) {
@@ -1228,21 +1251,14 @@ export class AdrastiaUpdater {
 
             console.log("Updating price accumulator:", priceAccumulator.address);
 
-            var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
-
-            if (token.validation.enabled) {
-                const validation = await this.validatePrice(priceAccumulator, price, token);
-                if (!validation.validated) {
-                    return;
-                }
-
-                price = validation.usePrice;
+            const updateData = await this.generatePaUpdateData(priceAccumulator, token, checkUpdateData);
+            if (updateData === undefined) {
+                console.log("Price accumulator update data is undefined. Skipping update.");
+                return;
             }
 
-            const paUpdateData = ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, price]);
-
             if (!this.dryRun) {
-                const updateTx = await priceAccumulator.update(paUpdateData, {
+                const updateTx = await priceAccumulator.update(updateData, {
                     gasLimit: this.useGasLimit,
                 });
                 console.log("Update price accumulator tx:", updateTx.hash);
@@ -1366,6 +1382,72 @@ export class AdrastiaUpdater {
     }
 }
 
+export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
+    async fetchFastGasPrice(url) {
+        var gasPrice = undefined;
+
+        await this.axiosInstance
+            .get(url, {
+                validateStatus: () => true, // Never throw an error... they're handled below,
+                timeout: 5000, // timeout after 5 seconds,
+                proxy: this.proxyConfig,
+            })
+            .then(async function (response: AxiosResponse) {
+                if (response.status >= 200 && response.status < 400) {
+                    var fastGas = parseFloat(response.data["result"]?.["FastGasPrice"]);
+
+                    if (fastGas == 0 || isNaN(fastGas)) {
+                        throw new Error("Cannot parse gas price from API");
+                    }
+
+                    gasPrice = ethers.utils.parseUnits(fastGas.toString(), "gwei");
+                } else {
+                    const responseBody = response.data ? JSON.stringify(response.data) : "";
+
+                    throw new Error(
+                        "Gas price API responded with error " +
+                            response.status +
+                            ": " +
+                            response.statusText +
+                            ". Response body: " +
+                            responseBody
+                    );
+                }
+            });
+
+        return gasPrice;
+    }
+
+    async generatePaCheckUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig) {
+        console.log("Fetching fast gas price");
+
+        // convert gwei to wei
+        const gasPrice = await this.fetchFastGasPrice(token.extra?.url);
+        if (gasPrice === undefined) {
+            throw new Error("Cannot fetch fast gas price");
+        }
+
+        const gasPriceFormatted = ethers.utils.commify(ethers.utils.formatUnits(gasPrice, "gwei"));
+
+        console.log("Fast gas price: " + gasPriceFormatted);
+
+        return ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, gasPrice]);
+    }
+
+    async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
+        // Get the latest block number
+        const blockNumber = await this.signer.provider.getBlockNumber();
+        // Get the latest block timestamp
+        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+        // Encode the timestamp
+        const encodedTimestamp = ethers.utils.defaultAbiCoder.encode(["uint"], [blockTimestamp]);
+        // Concatenate the checkUpdateData and the timestamp
+        const updateData = ethers.utils.hexConcat([checkUpdateData, encodedTimestamp]);
+
+        return updateData;
+    }
+}
+
 export async function run(
     oracleConfigs: OracleConfig[],
     chain: string,
@@ -1378,20 +1460,40 @@ export async function run(
     handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>,
     updateDelay: number,
     httpCacheSeconds: number,
+    type: string,
     proxyConfig?: AxiosProxyConfig
 ) {
-    const updater = new AdrastiaUpdater(
-        chain,
-        signer,
-        store,
-        useGasLimit,
-        onlyCritical,
-        dryRun,
-        handleUpdateTx,
-        updateDelay,
-        httpCacheSeconds,
-        proxyConfig
-    );
+    var updater;
+
+    if (type == "gas") {
+        updater = new AdrastiaGasPriceOracleUpdater(
+            chain,
+            signer,
+            store,
+            useGasLimit,
+            onlyCritical,
+            dryRun,
+            handleUpdateTx,
+            updateDelay,
+            httpCacheSeconds,
+            proxyConfig
+        );
+    } else if (type == "dex") {
+        updater = new AdrastiaUpdater(
+            chain,
+            signer,
+            store,
+            useGasLimit,
+            onlyCritical,
+            dryRun,
+            handleUpdateTx,
+            updateDelay,
+            httpCacheSeconds,
+            proxyConfig
+        );
+    } else {
+        throw new Error("Invalid updater type: " + type);
+    }
 
     for (const oracleConfig of oracleConfigs) {
         if (!oracleConfig.enabled) continue;
@@ -1457,6 +1559,7 @@ export async function handler(event) {
         undefined,
         target.delay,
         config.httpCacheSeconds,
+        config.type,
         proxyConfig
     );
 }
@@ -1505,6 +1608,7 @@ async function runRepeat(
                 undefined,
                 updateDelay,
                 config.httpCacheSeconds,
+                config.type,
                 proxyConfig
             );
         } catch (e) {
