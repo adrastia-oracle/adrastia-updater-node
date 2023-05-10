@@ -72,6 +72,8 @@ export class UpdateTransactionHandler {
                 console.log("Transaction timed out: " + tx.hash + ". Dropping...");
 
                 await this.dropTransaction(tx, signer);
+            } else {
+                console.error("Error waiting for transaction " + tx.hash + ":", e);
             }
         }
     }
