@@ -54,10 +54,22 @@ export class UpdateTransactionHandler {
 
     async handleUpdateTx(tx: ethers.ContractTransaction, signer: ethers.Signer) {
         try {
+            console.log("Waiting up to " + this.transactionTimeout + "ms for transaction to be mined: " + tx.hash);
+
             await Timeout.wrap(tx.wait(), this.transactionTimeout, "Timeout");
+
+            console.log("Transaction mined: " + tx.hash);
+
+            const confirmationsRequired = 10;
+
+            console.log("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
+
+            const receipt = await tx.wait(confirmationsRequired);
+
+            console.log("Transaction confirmed with " + receipt.confirmations + " confirmations: " + tx.hash);
         } catch (e) {
             if (e.message === "Timeout") {
-                console.log("Transaction timed out. Dropping...");
+                console.log("Transaction timed out: " + tx.hash + ". Dropping...");
 
                 await this.dropTransaction(tx, signer);
             }
