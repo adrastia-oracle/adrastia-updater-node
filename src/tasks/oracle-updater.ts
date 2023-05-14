@@ -1221,6 +1221,11 @@ export class AdrastiaUpdater {
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
         var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
 
+        // Get the latest block number
+        const blockNumber = await this.signer.provider.getBlockNumber();
+        // Get the latest block timestamp
+        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+
         if (token.validation.enabled) {
             const validation = await this.validatePrice(priceAccumulator, price, token);
             if (!validation.validated) {
@@ -1230,7 +1235,7 @@ export class AdrastiaUpdater {
             price = validation.usePrice;
         }
 
-        return ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, price]);
+        return ethers.utils.defaultAbiCoder.encode(["address", "uint", "uint"], [token.address, price, blockTimestamp]);
     }
 
     async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig) {
