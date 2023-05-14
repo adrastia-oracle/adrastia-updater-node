@@ -439,35 +439,57 @@ export class AdrastiaUpdater {
         await this.store.del(storeKey);
     }
 
-    async handleLaUpdate(liquidityAccumulator: LiquidityAccumulator, token: string) {
-        const updateData = ethers.utils.hexZeroPad(token, 32);
+    async generateLaCheckUpdateData(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig) {
+        return ethers.utils.hexZeroPad(token.address, 32);
+    }
 
-        if (this.dryRun || (await liquidityAccumulator.canUpdate(updateData))) {
+    async generateLaUpdateData(
+        liquidityAccumulator: LiquidityAccumulator,
+        token: TokenConfig,
+        checkUpdateData: string
+    ) {
+        const [tokenLiquidity, quoteTokenLiquidity] = await liquidityAccumulator["consultLiquidity(address,uint256)"](
+            token.address,
+            0
+        );
+
+        // Get the latest block number
+        const blockNumber = await this.signer.provider.getBlockNumber();
+        // Get the latest block timestamp
+        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+
+        return ethers.utils.defaultAbiCoder.encode(
+            ["address", "uint", "uint", "uint"],
+            [token.address, tokenLiquidity, quoteTokenLiquidity, blockTimestamp]
+        );
+    }
+
+    async handleLaUpdate(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig) {
+        const checkUpdateData = await this.generateLaCheckUpdateData(liquidityAccumulator, token);
+
+        if (this.dryRun || (await liquidityAccumulator.canUpdate(checkUpdateData))) {
             if (this.onlyCritical) {
                 // Critical: changePercent >= updateThreshold * 1.5
-                if (!(await this.accumulatorNeedsCriticalUpdate(liquidityAccumulator, token))) {
+                if (!(await this.accumulatorNeedsCriticalUpdate(liquidityAccumulator, token.address))) {
                     return;
                 }
             }
 
-            if (await this.updateIsDelayed(liquidityAccumulator, token)) {
+            if (await this.updateIsDelayed(liquidityAccumulator, token.address)) {
                 // Update is delayed. Do not update.
                 return;
             }
 
             console.log("Updating liquidity accumulator:", liquidityAccumulator.address);
 
-            const [tokenLiquidity, quoteTokenLiquidity] = await liquidityAccumulator[
-                "consultLiquidity(address,uint256)"
-            ](token, 0);
-
-            const laUpdateData = ethers.utils.defaultAbiCoder.encode(
-                ["address", "uint", "uint"],
-                [token, tokenLiquidity, quoteTokenLiquidity]
-            );
+            const updateData = await this.generateLaUpdateData(liquidityAccumulator, token, checkUpdateData);
+            if (updateData === undefined) {
+                console.log("Liquidity accumulator update data is undefined. Skipping update.");
+                return;
+            }
 
             if (!this.dryRun) {
-                const updateTx = await liquidityAccumulator.update(laUpdateData, {
+                const updateTx = await liquidityAccumulator.update(updateData, {
                     gasLimit: this.useGasLimit,
                 });
                 console.log("Update liquidity accumulator tx:", updateTx.hash);
@@ -478,7 +500,7 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(liquidityAccumulator, token);
+        await this.resetUpdateDelay(liquidityAccumulator, token.address);
     }
 
     calculateChange(a: BigNumber, b: BigNumber, changePrecision: BigNumber) {
@@ -1363,7 +1385,7 @@ export class AdrastiaUpdater {
         // Update all liquidity accumulators (if necessary)
         for (const liquidityAccumulator of las) {
             try {
-                await this.handleLaUpdate(liquidityAccumulator, token.address);
+                await this.handleLaUpdate(liquidityAccumulator, token);
             } catch (e) {
                 console.error(e);
             }
