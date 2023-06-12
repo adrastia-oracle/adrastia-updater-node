@@ -11,11 +11,12 @@
         "build": "rollup -c -i src/tasks/oracle-updater.ts -o dist/tasks/oracle-updater.js -f cjs --bundleConfigAsCjs",
         "run": "node dist/tasks/oracle-updater.js",
         "bar": "yarn build && yarn run run",
-        "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain/adrastia-core && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain/openzeppelin-v4 && yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain/adrastia-periphery "
+        "typechain:generate": "yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain/adrastia-core && yarn typechain --target=ethers-v5 ./node_modules/adrastia-core-v4/artifacts/**/*.json --out-dir=./typechain/adrastia-core-v4 && yarn typechain --target=ethers-v5 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain/openzeppelin-v4 && yarn typechain --target=ethers-v5 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain/adrastia-periphery "
     },
     "dependencies": {
         "@adrastia-oracle/adrastia-core": "3.0.0",
         "@adrastia-oracle/adrastia-periphery": "^3.0.0",
+        "adrastia-core-v4": "npm:@adrastia-oracle/adrastia-core@v4.0.0-beta.4",
         "await-timeout": "^1.1.1",
         "axios": "^0.27.2",
         "axios-cache-adapter": "^2.7.3",

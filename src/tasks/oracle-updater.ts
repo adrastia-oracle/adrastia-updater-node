@@ -21,6 +21,7 @@ import { abi as PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/art
 import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/accumulators/LiquidityAccumulator.sol/LiquidityAccumulator.json";
 import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
+import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
 
 // Import config
 import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
@@ -32,6 +33,7 @@ import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
 import axiosRetry from "axios-retry";
 import { setupCache } from "axios-cache-adapter";
 import { IKeyValueStore } from "../util/key-value-store";
+import { IOracleAggregator } from "../../typechain/adrastia-core-v4";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -134,6 +136,7 @@ export class AdrastiaUpdater {
     static IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
     static IHASPRICEACCUMULATOR_INTERFACEID = "0x6b72d0ba";
     static IAGGREGATEDORACLE_INTERFACEID = "0xce2362c4";
+    static IORACLEAGGREGATOR_INTERFACEID = "0x6b3f5d03";
 
     chain: string;
     signer: Signer;
@@ -299,7 +302,7 @@ export class AdrastiaUpdater {
             console.log("Added price accumulator: " + accumulatorAddress);
         }
 
-        // Check if the oracle is an aggregator
+        // Check if the oracle is an aggregator (v1 - v3)
         if (await erc165.supportsInterface(AdrastiaUpdater.IAGGREGATEDORACLE_INTERFACEID)) {
             const oracle: IAggregatedOracle = new ethers.Contract(
                 oracleAddress,
@@ -308,6 +311,28 @@ export class AdrastiaUpdater {
             ) as IAggregatedOracle;
 
             const underlyingOracles: string[] = await oracle.getOraclesFor(token);
+
+            // Discover underlying accumulators
+            for (const underlyingOracle of underlyingOracles) {
+                const underlyingAccumulators = await this.getAccumulators(underlyingOracle, token);
+
+                // Add all underlying liquidity accumulators
+                for (const la of underlyingAccumulators.las) las.push(la);
+
+                // Add all underlying price accumulators
+                for (const pa of underlyingAccumulators.pas) pas.push(pa);
+            }
+        }
+
+        // Check if the oracle is an aggregator (v4)
+        if (await erc165.supportsInterface(AdrastiaUpdater.IORACLEAGGREGATOR_INTERFACEID)) {
+            const oracle: IOracleAggregator = new ethers.Contract(
+                oracleAddress,
+                ORACLE_AGGREGATOR_ABI,
+                this.signer
+            ) as IOracleAggregator;
+
+            const underlyingOracles: string[] = (await oracle.getOracles(token)).map((oracle) => oracle.oracle);
 
             // Discover underlying accumulators
             for (const underlyingOracle of underlyingOracles) {
@@ -1371,7 +1396,7 @@ export class AdrastiaUpdater {
         await this.resetUpdateDelay(oracle, token);
     }
 
-    async keepUpdated(oracleAddress: string, token: TokenConfig) {
+    async keepAggregatedOracleUpdated(oracleAddress: string, token: TokenConfig) {
         const oracle: AggregatedOracle = new ethers.Contract(
             oracleAddress,
             AGGREGATED_ORACLE_ABI,
@@ -1406,6 +1431,10 @@ export class AdrastiaUpdater {
 
         // Update oracle (if necessary)
         await this.handleOracleUpdate(oracle, token.address);
+    }
+
+    async keepUpdated(oracleAddress: string, token: TokenConfig) {
+        await this.keepAggregatedOracleUpdated(oracleAddress, token);
     }
 }
 

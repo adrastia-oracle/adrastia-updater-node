@@ -1254,6 +1254,16 @@ adm-zip@^0.4.16:
   resolved "https://registry.yarnpkg.com/adm-zip/-/adm-zip-0.4.16.tgz#cf4c508fdffab02c269cbc7f471a875f05570365"
   integrity sha512-TFi4HBKSGfIKsK5YCkKaaFG2m4PEDyViZmEwof3MTIgzimHLto6muaHVpbrljdIvIrFZzEq/p4nafOeLcYegrg==
 
+"adrastia-core-v4@npm:@adrastia-oracle/adrastia-core@v4.0.0-beta.4":
+  version "4.0.0-beta.4"
+  resolved "https://registry.yarnpkg.com/@adrastia-oracle/adrastia-core/-/adrastia-core-4.0.0-beta.4.tgz#5ed7deea0bc18b2d2e6935c0c0cce81204607f21"
+  integrity sha512-YBuQDGU8FiTVwyx9DJjPHBkds6RA41McM7Ai4gjQhRkrHd5zCDJIgjjgq7BBjI1WJwVQ2quJMaG7nLK0r2B7EQ==
+  dependencies:
+    "@openzeppelin-v4/contracts" "npm:@openzeppelin/contracts@4.6.0"
+    "@prb/math" "^2.5.0"
+    "@uniswap/v2-core" "^1.0.1"
+    "@uniswap/v3-core" "^1.0.1"
+
 aes-js@3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/aes-js/-/aes-js-3.0.0.tgz#e21df10ad6c2053295bcbb8dab40b09dbea87e4d"
