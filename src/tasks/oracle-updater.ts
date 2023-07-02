@@ -207,8 +207,8 @@ export class AdrastiaUpdater {
 
         console.log("Discovering accumulators for oracle: " + oracleAddress);
 
-        const lasStoreKey = this.chain + "." + oracleAddress + ".las";
-        const pasStoreKey = this.chain + "." + oracleAddress + ".pas";
+        const lasStoreKey = this.chain + "." + oracleAddress + "." + token + ".las";
+        const pasStoreKey = this.chain + "." + oracleAddress + "." + token + ".pas";
 
         const lasFromStore = await this.store.get(lasStoreKey);
         const pasFromStore = await this.store.get(pasStoreKey);
