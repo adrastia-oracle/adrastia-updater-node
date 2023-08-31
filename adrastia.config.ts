@@ -51,7 +51,7 @@ export type AdrastiaConfig = {
     };
     dryRun: boolean;
     httpCacheSeconds: number;
-    type: "dex" | "gas";
+    type: "dex" | "gas" | "aci-address";
     chains: Record<string, ChainConfig>;
 };
 

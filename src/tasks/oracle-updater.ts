@@ -22,6 +22,7 @@ import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core
 import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
+import { abi as AUTOMATION_COMPATIBLE_INTERFACE_ABI } from "../../artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json";
 
 // Import config
 import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
@@ -34,6 +35,7 @@ import axiosRetry from "axios-retry";
 import { setupCache } from "axios-cache-adapter";
 import { IKeyValueStore } from "../util/key-value-store";
 import { IOracleAggregator } from "../../typechain/adrastia-core-v4";
+import { AutomationCompatibleInterface } from "../../typechain/local";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -1504,6 +1506,53 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
     }
 }
 
+export class AdrastiaAciUpdater extends AdrastiaUpdater {
+    async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig) {
+        // Encode token address as bytes array
+        const checkUpdateData = await ethers.utils.defaultAbiCoder.encode(["address"], [token.address]);
+
+        const upkeep: any = await automatable.callStatic.checkUpkeep(checkUpdateData);
+
+        if (this.dryRun || upkeep.upkeepNeeded) {
+            if (await this.updateIsDelayed(automatable, token.address)) {
+                // Update is delayed. Do not update.
+                return;
+            }
+
+            console.log("Updating ACI:", automatable.address);
+
+            if (!this.dryRun) {
+                const updateTx = await automatable.performUpkeep(upkeep.performData, {
+                    gasLimit: this.useGasLimit,
+                });
+                console.log("Update ACI tx:", updateTx.hash);
+
+                if (this.handleUpdateTx) {
+                    await this.handleUpdateTx(updateTx, this.signer);
+                }
+            }
+        }
+
+        await this.resetUpdateDelay(automatable, token.address);
+    }
+
+    async keepUpdated(oracleAddress: string, token: TokenConfig) {
+        const automatable: AutomationCompatibleInterface = new ethers.Contract(
+            oracleAddress,
+            AUTOMATION_COMPATIBLE_INTERFACE_ABI,
+            this.signer
+        ) as AutomationCompatibleInterface;
+
+        console.log("Checking if ACI needs an update: " + automatable.address);
+
+        try {
+            await this.handleAciUpdate(automatable, token);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+}
+
 export async function run(
     oracleConfigs: OracleConfig[],
     chain: string,
@@ -1523,6 +1572,19 @@ export async function run(
 
     if (type == "gas") {
         updater = new AdrastiaGasPriceOracleUpdater(
+            chain,
+            signer,
+            store,
+            useGasLimit,
+            onlyCritical,
+            dryRun,
+            handleUpdateTx,
+            updateDelay,
+            httpCacheSeconds,
+            proxyConfig
+        );
+    } else if (type == "aci-address") {
+        updater = new AdrastiaAciUpdater(
             chain,
             signer,
             store,

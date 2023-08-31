@@ -36,7 +36,13 @@ cd adrastia-updater-node
 yarn install --lock-file
 ```
 
-4. Generate typescript bindings
+4. Compile contracts
+
+```console
+npx hardhat compile
+```
+
+5. Generate typescript bindings
 
 ```console
 yarn typechain:generate
