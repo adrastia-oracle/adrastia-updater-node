@@ -268,6 +268,33 @@ const config: HardhatUserConfig = {
             },
             gasMultiplier: 1.25,
         },
+        polygonZkEVM: {
+            url: process.env.POLYGONZKEVM_URL,
+            accounts: {
+                mnemonic: process.env.POLYGONZKEVM_MNEMONIC,
+                path: process.env.POLYGONZKEVM_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.POLYGONZKEVM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
+        moonbeam: {
+            url: process.env.MOONBEAM_URL,
+            accounts: {
+                mnemonic: process.env.MOONBEAM_MNEMONIC,
+                path: process.env.MOONBEAM_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.MOONBEAM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
+        bobaEthereum: {
+            url: process.env.BOBAETHEREUM_URL,
+            accounts: {
+                mnemonic: process.env.BOBAETHEREUM_MNEMONIC,
+                path: process.env.BOBAETHEREUM_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.BOBAETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+            },
+            gasMultiplier: 1.25,
+        },
     },
 };
 
