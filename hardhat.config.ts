@@ -60,7 +60,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         types.int,
         true
     )
-    .addParam("type", "The type of the updater. Either 'dex' or 'gas'.", "dex", types.string, true)
+    .addParam("type", "The type of the updater. Either 'dex', 'aci-address', or 'gas'.", "dex", types.string, true)
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
     .addFlag("service", "Enables service mode to communicate with systemd and the watchdog.")
     .setAction(async (taskArgs, hre) => {
