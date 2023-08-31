@@ -19,6 +19,15 @@ dotenv.config();
 
 const DEFAULT_PATH = "m/44'/60'/0'/0/0";
 const DEFAULT_PASSPHRASE = "";
+const DEFAULT_GASMULTIPLIER = 1.25;
+
+function parseFloatOrUndefined(value: string | undefined): number | undefined {
+    if (value === undefined || value === "" || value === null) {
+        return undefined;
+    }
+
+    return parseFloat(value);
+}
 
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     const accounts = await hre.ethers.getSigners();
@@ -26,6 +35,12 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     for (var i = 0; i < accounts.length; ++i) {
         console.log(i + ": " + accounts[i].address);
     }
+});
+
+task("gasmultiplier", "Prints the gas multiplier for the current network", async (taskArgs, hre) => {
+    const gasMultiplier = hre.network.config.gasMultiplier;
+
+    console.log("Gas multiplier for network", hre.network.name, "is", gasMultiplier);
 });
 
 task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
@@ -203,7 +218,10 @@ const config: HardhatUserConfig = {
                 path: process.env.POLYGON_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGON_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.POLYGON_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         ethereum: {
             url: process.env.ETHEREUM_URL,
@@ -212,7 +230,10 @@ const config: HardhatUserConfig = {
                 path: process.env.ETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.ETHEREUM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         optimism: {
             url: process.env.OPTIMISM_URL,
@@ -221,7 +242,10 @@ const config: HardhatUserConfig = {
                 path: process.env.OPTIMISM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.OPTIMISM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.OPTIMISM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         arbitrumOne: {
             url: process.env.ARBITRUMONE_URL,
@@ -230,7 +254,10 @@ const config: HardhatUserConfig = {
                 path: process.env.ARBITRUMONE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ARBITRUMONE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.ARBITRUMONE_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         avalanche: {
             url: process.env.AVALANCHE_URL,
@@ -239,7 +266,10 @@ const config: HardhatUserConfig = {
                 path: process.env.AVALANCHE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.AVALANCHE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.AVALANCHE_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         fantom: {
             url: process.env.FANTOM_URL,
@@ -248,7 +278,10 @@ const config: HardhatUserConfig = {
                 path: process.env.FANTOM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.FANTOM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.FANTOM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         bsc: {
             url: process.env.BSC_URL,
@@ -257,7 +290,10 @@ const config: HardhatUserConfig = {
                 path: process.env.BSC_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BSC_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.BSC_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         evmos: {
             url: process.env.EVMOS_URL,
@@ -266,7 +302,10 @@ const config: HardhatUserConfig = {
                 path: process.env.EVMOS_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.EVMOS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.EVMOS_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         polygonZkEVM: {
             url: process.env.POLYGONZKEVM_URL,
@@ -275,7 +314,10 @@ const config: HardhatUserConfig = {
                 path: process.env.POLYGONZKEVM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGONZKEVM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.POLYGONZKEVM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         moonbeam: {
             url: process.env.MOONBEAM_URL,
@@ -284,7 +326,10 @@ const config: HardhatUserConfig = {
                 path: process.env.MOONBEAM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.MOONBEAM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.MOONBEAM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
         bobaEthereum: {
             url: process.env.BOBAETHEREUM_URL,
@@ -293,7 +338,10 @@ const config: HardhatUserConfig = {
                 path: process.env.BOBAETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BOBAETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
             },
-            gasMultiplier: 1.25,
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.BOBAETHEREUM_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
         },
     },
 };
