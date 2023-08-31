@@ -22,7 +22,6 @@ import { abi as LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core
 import { abi as HAS_PRICE_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasPriceAccumulator.sol/IHasPriceAccumulator.json";
 import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-core/artifacts/contracts/interfaces/IHasLiquidityAccumulator.sol/IHasLiquidityAccumulator.json";
 import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
-import { abi as AUTOMATION_COMPATIBLE_INTERFACE_ABI } from "../../artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json";
 
 // Import config
 import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
@@ -1507,6 +1506,8 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
 }
 
 export class AdrastiaAciUpdater extends AdrastiaUpdater {
+    automationCompatibleInterface = require("../../artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json");
+
     async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig) {
         // Encode token address as bytes array
         const checkUpdateData = await ethers.utils.defaultAbiCoder.encode(["address"], [token.address]);
@@ -1539,7 +1540,7 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
     async keepUpdated(oracleAddress: string, token: TokenConfig) {
         const automatable: AutomationCompatibleInterface = new ethers.Contract(
             oracleAddress,
-            AUTOMATION_COMPATIBLE_INTERFACE_ABI,
+            this.automationCompatibleInterface.abi,
             this.signer
         ) as AutomationCompatibleInterface;
 
