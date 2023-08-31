@@ -20,6 +20,15 @@ dotenv.config();
 const DEFAULT_PATH = "m/44'/60'/0'/0/0";
 const DEFAULT_PASSPHRASE = "";
 const DEFAULT_GASMULTIPLIER = 1.25;
+const DEFAULT_ACCOUNT_COUNT = 50;
+
+function parseIntOrUndefined(value: string | undefined): number | undefined {
+    if (value === undefined || value === "" || value === null) {
+        return undefined;
+    }
+
+    return parseInt(value);
+}
 
 function parseFloatOrUndefined(value: string | undefined): number | undefined {
     if (value === undefined || value === "" || value === null) {
@@ -217,6 +226,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.POLYGON_MNEMONIC,
                 path: process.env.POLYGON_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGON_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.POLYGON_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.POLYGON_GASMULTIPLIER) ??
@@ -229,6 +242,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.ETHEREUM_MNEMONIC,
                 path: process.env.ETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.ETHEREUM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.ETHEREUM_GASMULTIPLIER) ??
@@ -241,6 +258,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.OPTIMISM_MNEMONIC,
                 path: process.env.OPTIMISM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.OPTIMISM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.OPTIMISM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.OPTIMISM_GASMULTIPLIER) ??
@@ -253,6 +274,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.ARBITRUMONE_MNEMONIC,
                 path: process.env.ARBITRUMONE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ARBITRUMONE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.ARBITRUMONE_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.ARBITRUMONE_GASMULTIPLIER) ??
@@ -265,6 +290,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.AVALANCHE_MNEMONIC,
                 path: process.env.AVALANCHE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.AVALANCHE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.AVALANCHE_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.AVALANCHE_GASMULTIPLIER) ??
@@ -277,6 +306,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.FANTOM_MNEMONIC,
                 path: process.env.FANTOM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.FANTOM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.FANTOM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.FANTOM_GASMULTIPLIER) ??
@@ -289,6 +322,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.BSC_MNEMONIC,
                 path: process.env.BSC_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BSC_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.BSC_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.BSC_GASMULTIPLIER) ??
@@ -301,6 +338,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.EVMOS_MNEMONIC,
                 path: process.env.EVMOS_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.EVMOS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.EVMOS_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.EVMOS_GASMULTIPLIER) ??
@@ -313,6 +354,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.POLYGONZKEVM_MNEMONIC,
                 path: process.env.POLYGONZKEVM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGONZKEVM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.POLYGONZKEVM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.POLYGONZKEVM_GASMULTIPLIER) ??
@@ -325,6 +370,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.MOONBEAM_MNEMONIC,
                 path: process.env.MOONBEAM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.MOONBEAM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.MOONBEAM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.MOONBEAM_GASMULTIPLIER) ??
@@ -337,6 +386,10 @@ const config: HardhatUserConfig = {
                 mnemonic: process.env.BOBAETHEREUM_MNEMONIC,
                 path: process.env.BOBAETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BOBAETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.BOBAETHEREUM_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
             },
             gasMultiplier:
                 parseFloatOrUndefined(process.env.BOBAETHEREUM_GASMULTIPLIER) ??
