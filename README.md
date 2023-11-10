@@ -96,4 +96,8 @@ Not open to contributions at this time.
 
 ## License
 
-Adrastia Defender Autotasks is licensed under the [MIT License](LICENSE).
+Adrastia Updater Node is licensed under the [Business Source License 1.1 (BUSL-1.1)](LICENSE).
+
+### Exceptions
+
+- The file located at [contracts/AutomationCompatibleInterface.sol](contracts/AutomationCompatibleInterface.sol) is licensed under the MIT License, Copyright (c) 2018 SmartContract ChainLink, Ltd.
