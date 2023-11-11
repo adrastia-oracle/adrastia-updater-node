@@ -396,6 +396,22 @@ const config: HardhatUserConfig = {
                 parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
                 DEFAULT_GASMULTIPLIER,
         },
+        zkSyncEra: {
+            url: process.env.ZKSYNCERA_URL,
+            accounts: {
+                mnemonic: process.env.ZKSYNCERA_MNEMONIC,
+                path: process.env.ZKSYNCERA_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.ZKSYNCERA_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.ZKSYNCERA_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.ZKSYNCERA_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
     },
 };
 
