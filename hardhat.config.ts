@@ -7,7 +7,11 @@ import { HardhatUserConfig } from "hardhat/types";
 import { KeyValueStoreClient } from "defender-kvstore-client";
 
 import { default as adrastiaConfig } from "./adrastia.config";
-import { UpdateTransactionHandler } from "./src/util/update-tx-handler";
+import {
+    AciUpdateTransactionHandler,
+    UpdateTransactionHandler,
+    UpdateTransactionOptions,
+} from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
 
 import "log-timestamp";
@@ -72,6 +76,13 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     .addParam("type", "The type of the updater. Either 'dex', 'aci-address', or 'gas'.", "dex", types.string, true)
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
     .addFlag("service", "Enables service mode to communicate with systemd and the watchdog.")
+    .addParam(
+        "gasPriceMultiplier",
+        "The gas price multiplier to use (with up to 4 decimal places).",
+        undefined,
+        types.float,
+        true
+    )
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
@@ -123,11 +134,36 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             store = new KeyValueStoreClient({ path: "store.json.tmp" });
         }
 
+        // Extract gas price multiplier
+        var gasPriceMultiplierDividend = undefined;
+        var gasPriceMultiplierDivisor = undefined;
+        if (taskArgs.gasPriceMultiplier !== undefined) {
+            if (taskArgs.gasPriceMultiplier < 1) {
+                throw new Error("Gas price multiplier must be greater than or equal to 1");
+            }
+
+            // Take the gas price multiplier from the command line (it's a float) and convert it to a fraction
+            gasPriceMultiplierDividend = Math.floor(taskArgs.gasPriceMultiplier * 10000);
+            gasPriceMultiplierDivisor = 10000;
+        }
+
         const txConfig = adrastiaConfig.chains[hre.network.name].txConfig[taskArgs.mode];
 
         const transactionTimeout = txConfig.validFor * 1000;
 
-        const updateTxHandler = new UpdateTransactionHandler(transactionTimeout);
+        const updateTxOptions: UpdateTransactionOptions = {
+            gasLimit: txConfig.gasLimit,
+            transactionTimeout: transactionTimeout,
+            gasPriceMultiplierDividend: gasPriceMultiplierDividend,
+            gasPriceMultiplierDivisor: gasPriceMultiplierDivisor,
+        };
+
+        var updateTxHandler: UpdateTransactionHandler;
+        if (taskArgs.type === "aci-address") {
+            updateTxHandler = new AciUpdateTransactionHandler(updateTxOptions);
+        } else {
+            updateTxHandler = new UpdateTransactionHandler(updateTxOptions);
+        }
 
         var proxyConfig: AxiosProxyConfig;
 
@@ -162,6 +198,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - service: ${taskArgs.service}`);
         console.log(`  - type: ${taskArgs.type}`);
 
+        if (taskArgs.gasPriceMultiplier !== undefined) {
+            console.log(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
+        }
+
         if (proxyConfig !== undefined) {
             console.log(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
         }
@@ -193,7 +233,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     txConfig.gasLimit,
                     taskArgs.mode === "critical",
                     taskArgs.dryRun,
-                    updateTxHandler.handleUpdateTx.bind(updateTxHandler),
+                    updateTxHandler,
                     taskArgs.delay,
                     adrastiaConfig.httpCacheSeconds,
                     taskArgs.type,
@@ -218,6 +258,10 @@ const config: HardhatUserConfig = {
             forking: process.env.FORKING_URL && {
                 url: process.env.FORKING_URL,
                 enabled: true,
+            },
+            mining: {
+                auto: true,
+                interval: 2000,
             },
         },
         polygon: {

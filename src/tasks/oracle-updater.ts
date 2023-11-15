@@ -10,7 +10,6 @@ import {
     IAggregatedOracle,
     IHasLiquidityAccumulator,
     IHasPriceAccumulator,
-    IOracle,
 } from "../../typechain/adrastia-core/interfaces";
 import { LiquidityAccumulator, PriceAccumulator } from "../../typechain/adrastia-core/accumulators";
 
@@ -35,6 +34,11 @@ import { setupCache } from "axios-cache-adapter";
 import { IKeyValueStore } from "../util/key-value-store";
 import { IOracleAggregator } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
+import {
+    DefenderUpdateTransactionHandler,
+    IUpdateTransactionHandler,
+    UpdateTransactionHandler,
+} from "../util/update-tx-handler";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -142,7 +146,7 @@ export class AdrastiaUpdater {
     chain: string;
     signer: Signer;
     store: IKeyValueStore;
-    handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>;
+    updateTxHandler: IUpdateTransactionHandler;
     updateDelay: number; // in seconds
 
     useGasLimit = 1000000;
@@ -160,7 +164,7 @@ export class AdrastiaUpdater {
         useGasLimit: number,
         onlyCritical: boolean,
         dryRun: boolean,
-        handleUpdateTx: (tx: ethers.ContractTransaction, signer: Signer) => Promise<void>,
+        updateTxHandler: IUpdateTransactionHandler,
         updateDelay: number,
         httpCacheSeconds: number,
         proxyConfig?: AxiosProxyConfig
@@ -168,7 +172,7 @@ export class AdrastiaUpdater {
         this.chain = chain;
         this.signer = signer;
         this.store = store;
-        this.handleUpdateTx = handleUpdateTx;
+        this.updateTxHandler = updateTxHandler;
         this.updateDelay = updateDelay;
 
         this.useGasLimit = useGasLimit;
@@ -515,14 +519,9 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                const updateTx = await liquidityAccumulator.update(updateData, {
+                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.address, updateData, this.signer, {
                     gasLimit: this.useGasLimit,
                 });
-                console.log("Update liquidity accumulator tx:", updateTx.hash);
-
-                if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this.signer);
-                }
             }
         }
 
@@ -1311,14 +1310,9 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                const updateTx = await priceAccumulator.update(updateData, {
+                await this.updateTxHandler.sendUpdateTx(priceAccumulator.address, updateData, this.signer, {
                     gasLimit: this.useGasLimit,
                 });
-                console.log("Update price accumulator tx:", updateTx.hash);
-
-                if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this.signer);
-                }
             }
         }
 
@@ -1383,14 +1377,9 @@ export class AdrastiaUpdater {
             console.log("Updating oracle:", oracle.address);
 
             if (!this.dryRun) {
-                const updateTx = await oracle.update(updateData, {
+                await this.updateTxHandler.sendUpdateTx(oracle.address, updateData, this.signer, {
                     gasLimit: this.useGasLimit,
                 });
-                console.log("Update oracle tx:", updateTx.hash);
-
-                if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this.signer);
-                }
             }
         }
 
@@ -1523,14 +1512,9 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             console.log("Updating ACI:", automatable.address);
 
             if (!this.dryRun) {
-                const updateTx = await automatable.performUpkeep(upkeep.performData, {
+                await this.updateTxHandler.sendUpdateTx(automatable.address, upkeep.performData, this.signer, {
                     gasLimit: this.useGasLimit,
                 });
-                console.log("Update ACI tx:", updateTx.hash);
-
-                if (this.handleUpdateTx) {
-                    await this.handleUpdateTx(updateTx, this.signer);
-                }
             }
         }
 
@@ -1563,7 +1547,7 @@ export async function run(
     useGasLimit: number,
     onlyCritical: boolean,
     dryRun: boolean,
-    handleUpdateTx: (tx: ethers.providers.TransactionResponse, signer: Signer) => Promise<void>,
+    updateTxHandler: UpdateTransactionHandler,
     updateDelay: number,
     httpCacheSeconds: number,
     type: string,
@@ -1579,7 +1563,7 @@ export async function run(
             useGasLimit,
             onlyCritical,
             dryRun,
-            handleUpdateTx,
+            updateTxHandler,
             updateDelay,
             httpCacheSeconds,
             proxyConfig
@@ -1592,7 +1576,7 @@ export async function run(
             useGasLimit,
             onlyCritical,
             dryRun,
-            handleUpdateTx,
+            updateTxHandler,
             updateDelay,
             httpCacheSeconds,
             proxyConfig
@@ -1605,7 +1589,7 @@ export async function run(
             useGasLimit,
             onlyCritical,
             dryRun,
-            handleUpdateTx,
+            updateTxHandler,
             updateDelay,
             httpCacheSeconds,
             proxyConfig
@@ -1639,6 +1623,10 @@ export async function handler(event) {
     const signer = new DefenderRelaySigner(event, provider, {
         speed: txConfig.speed as Speed,
         validForSeconds: txConfig.validFor,
+    });
+
+    const updateTxHandler = new DefenderUpdateTransactionHandler({
+        gasLimit: txConfig.gasLimit,
     });
 
     var proxyConfig: AxiosProxyConfig;
@@ -1675,7 +1663,7 @@ export async function handler(event) {
         txConfig.gasLimit,
         target.type === "critical",
         config.dryRun,
-        undefined,
+        updateTxHandler,
         target.delay,
         config.httpCacheSeconds,
         config.type,
@@ -1707,6 +1695,10 @@ async function runRepeat(
         validForSeconds: txConfig.validFor,
     });
 
+    const updateTxHandler = new DefenderUpdateTransactionHandler({
+        gasLimit: txConfig.gasLimit,
+    });
+
     const oracleConfigs: OracleConfig[] = chainConfig.oracles;
 
     var timesRepeated = 0;
@@ -1724,7 +1716,7 @@ async function runRepeat(
                 txConfig.gasLimit,
                 mode === "critical",
                 config.dryRun,
-                undefined,
+                updateTxHandler,
                 updateDelay,
                 config.httpCacheSeconds,
                 config.type,

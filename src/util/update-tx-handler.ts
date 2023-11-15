@@ -4,18 +4,45 @@
  */
 import Timeout from "await-timeout";
 
-import { BigNumber, ethers } from "ethers";
+import { ethers, BigNumber, BigNumberish, BytesLike, Signer, ContractTransaction, Overrides } from "ethers";
+import { IUpdateable } from "../../typechain/adrastia-core-v4";
+import { AutomationCompatibleInterface } from "../../typechain/local";
+
+import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
 
 const ONE_GWEI = BigNumber.from("1000000000");
 
-export class UpdateTransactionHandler {
-    transactionTimeout: number;
+export type UpdateTransactionOptions = {
+    gasLimit?: BigNumberish;
+    gasPriceMultiplierDividend?: number;
+    gasPriceMultiplierDivisor?: number;
+    waitForConfirmations?: number;
+    transactionTimeout?: number;
+};
 
-    constructor(transactionTimeout: number) {
-        this.transactionTimeout = transactionTimeout;
+export interface IUpdateTransactionHandler {
+    sendUpdateTx(
+        updateable: string,
+        updateData: BytesLike,
+        signer: Signer,
+        options?: UpdateTransactionOptions
+    ): Promise<void>;
+
+    handleUpdateTx(tx: ContractTransaction, signer: Signer): Promise<void>;
+}
+
+export class UpdateTransactionHandler implements IUpdateTransactionHandler {
+    updateTxOptions: UpdateTransactionOptions;
+
+    constructor(updateTxOptions: UpdateTransactionOptions) {
+        if (!updateTxOptions?.transactionTimeout) {
+            throw new Error("transactionTimeout must be a number greater than zero");
+        }
+
+        this.updateTxOptions = updateTxOptions;
     }
 
-    async dropTransaction(tx: ethers.ContractTransaction, signer: ethers.Signer) {
+    async dropTransaction(tx: ContractTransaction, signer: Signer) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
@@ -42,7 +69,7 @@ export class UpdateTransactionHandler {
             gasPrice: gasPriceToUse,
         });
         try {
-            await Timeout.wrap(replacementTx.wait(), this.transactionTimeout, "Timeout");
+            await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
         } catch (e) {
             if (e.message === "Timeout") {
                 console.log("Drop transaction timed out. Trying again...");
@@ -52,15 +79,20 @@ export class UpdateTransactionHandler {
         }
     }
 
-    async handleUpdateTx(tx: ethers.ContractTransaction, signer: ethers.Signer) {
+    async handleUpdateTx(tx: ContractTransaction, signer: Signer) {
         try {
-            console.log("Waiting up to " + this.transactionTimeout + "ms for transaction to be mined: " + tx.hash);
+            console.log(
+                "Waiting up to " +
+                    this.updateTxOptions.transactionTimeout +
+                    "ms for transaction to be mined: " +
+                    tx.hash
+            );
 
-            await Timeout.wrap(tx.wait(), this.transactionTimeout, "Timeout");
+            await Timeout.wrap(tx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
 
             console.log("Transaction mined: " + tx.hash);
 
-            const confirmationsRequired = 10;
+            const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 10;
 
             console.log("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
 
@@ -76,5 +108,58 @@ export class UpdateTransactionHandler {
                 console.error("Error waiting for transaction " + tx.hash + ":", e);
             }
         }
+    }
+
+    async sendUpdateTxWithOverrides(updateable: string, updateData: BytesLike, signer: Signer, overrides: Overrides) {
+        const updateableContract = new ethers.Contract(updateable, IUPDATEABLE_ABI, signer) as IUpdateable;
+
+        return await updateableContract.update(updateData, overrides);
+    }
+
+    async sendUpdateTx(updateable: string, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
+        var gasPrice = await signer.getGasPrice();
+
+        console.log("Gas price from signer: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+
+        if (options.gasPriceMultiplierDividend && options.gasPriceMultiplierDivisor) {
+            // Adjust the gas price by the specified multiplier
+            gasPrice = gasPrice.mul(options.gasPriceMultiplierDividend).div(options.gasPriceMultiplierDivisor);
+        } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
+            // Adjust the gas price by the default multiplier
+            gasPrice = gasPrice
+                .mul(this.updateTxOptions.gasPriceMultiplierDividend)
+                .div(this.updateTxOptions.gasPriceMultiplierDivisor);
+        }
+
+        console.log("Sending update transaction with gas price: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+
+        const tx = await this.sendUpdateTxWithOverrides(updateable, updateData, signer, {
+            gasLimit: options?.gasLimit ?? this.updateTxOptions.gasLimit,
+            gasPrice: gasPrice,
+        });
+
+        console.log("Sent update transaction: " + tx.hash);
+
+        await this.handleUpdateTx(tx, signer);
+    }
+}
+
+export class AciUpdateTransactionHandler extends UpdateTransactionHandler {
+    automationCompatibleInterface = require("../../artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json");
+
+    async sendUpdateTxWithOverrides(updateable: string, updateData: BytesLike, signer: Signer, overrides: Overrides) {
+        const updateableContract = new ethers.Contract(
+            updateable,
+            this.automationCompatibleInterface.abi,
+            signer
+        ) as AutomationCompatibleInterface;
+
+        return await updateableContract.performUpkeep(updateData, overrides);
+    }
+}
+
+export class DefenderUpdateTransactionHandler extends UpdateTransactionHandler {
+    async handleUpdateTx(tx: ContractTransaction, signer: Signer) {
+        // NO-OP: Defender handles the transaction
     }
 }
