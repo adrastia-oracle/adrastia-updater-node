@@ -18,6 +18,7 @@ import "log-timestamp";
 import { AxiosProxyConfig } from "axios";
 import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
+import { formatUnits, parseUnits } from "ethers/lib/utils";
 
 dotenv.config();
 
@@ -83,6 +84,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         types.float,
         true
     )
+    .addParam("maxGasPrice", "The maximum gas price to use (in gwei).", undefined, types.float, true)
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
@@ -151,11 +153,21 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const transactionTimeout = txConfig.validFor * 1000;
 
+        var maxGasPrice = undefined;
+        if (taskArgs.maxGasPrice !== undefined) {
+            if (taskArgs.maxGasPrice < 1) {
+                throw new Error("Max gas price must be greater than or equal to 1");
+            }
+
+            maxGasPrice = parseUnits(taskArgs.maxGasPrice.toString(), "gwei");
+        }
+
         const updateTxOptions: UpdateTransactionOptions = {
             gasLimit: txConfig.gasLimit,
             transactionTimeout: transactionTimeout,
             gasPriceMultiplierDividend: gasPriceMultiplierDividend,
             gasPriceMultiplierDivisor: gasPriceMultiplierDivisor,
+            maxGasPrice: maxGasPrice,
         };
 
         var updateTxHandler: UpdateTransactionHandler;
@@ -200,6 +212,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         if (taskArgs.gasPriceMultiplier !== undefined) {
             console.log(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
+        }
+
+        if (maxGasPrice !== undefined) {
+            console.log(`  - maxGasPrice: ${formatUnits(maxGasPrice, "gwei")} gwei`);
         }
 
         if (proxyConfig !== undefined) {

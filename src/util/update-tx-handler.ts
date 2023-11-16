@@ -18,6 +18,7 @@ export type UpdateTransactionOptions = {
     gasPriceMultiplierDivisor?: number;
     waitForConfirmations?: number;
     transactionTimeout?: number;
+    maxGasPrice?: BigNumberish; // In wei
 };
 
 export interface IUpdateTransactionHandler {
@@ -117,18 +118,40 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     }
 
     async sendUpdateTx(updateable: string, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
-        var gasPrice = await signer.getGasPrice();
+        var gasPriceFromSigner = await signer.getGasPrice();
+        var gasPrice = gasPriceFromSigner;
 
         console.log("Gas price from signer: " + ethers.utils.formatUnits(gasPrice, "gwei"));
 
         if (options.gasPriceMultiplierDividend && options.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the specified multiplier
             gasPrice = gasPrice.mul(options.gasPriceMultiplierDividend).div(options.gasPriceMultiplierDivisor);
+
+            console.log("Gas price adjusted by tx options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
         } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the default multiplier
             gasPrice = gasPrice
                 .mul(this.updateTxOptions.gasPriceMultiplierDividend)
                 .div(this.updateTxOptions.gasPriceMultiplierDivisor);
+
+            console.log("Gas price adjusted by instance options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+        }
+
+        // Cap the gas price if specified
+        if (options.maxGasPrice && gasPrice.gt(options.maxGasPrice)) {
+            gasPrice = BigNumber.from(options.maxGasPrice);
+
+            console.log("Gas price capped by tx options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+        }
+        if (this.updateTxOptions.maxGasPrice && gasPrice.gt(this.updateTxOptions.maxGasPrice)) {
+            gasPrice = BigNumber.from(this.updateTxOptions.maxGasPrice);
+
+            console.log("Gas price capped by instance options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+        }
+        if (gasPrice.lt(gasPriceFromSigner)) {
+            throw new Error(
+                "Calculated gas price is less than the gas price from the signer. The transaction will fail. Aborting..."
+            );
         }
 
         console.log("Sending update transaction with gas price: " + ethers.utils.formatUnits(gasPrice, "gwei"));
