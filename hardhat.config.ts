@@ -472,6 +472,38 @@ const config: HardhatUserConfig = {
                 parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
                 DEFAULT_GASMULTIPLIER,
         },
+        filecoin: {
+            url: process.env.FILECOIN_URL,
+            accounts: {
+                mnemonic: process.env.FILECOIN_MNEMONIC,
+                path: process.env.FILECOIN_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.FILECOIN_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.FILECOIN_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.FILECOIN_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
+        rootstock: {
+            url: process.env.ROOTSTOCK_URL,
+            accounts: {
+                mnemonic: process.env.ROOTSTOCK_MNEMONIC,
+                path: process.env.ROOTSTOCK_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.ROOTSTOCK_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.ROOTSTOCK_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.ROOTSTOCK_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
     },
 };
 
