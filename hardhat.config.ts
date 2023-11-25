@@ -1,9 +1,9 @@
 import * as dotenv from "dotenv";
 
-import "@nomiclabs/hardhat-waffle";
-
 import { task, types } from "hardhat/config";
-import { HardhatUserConfig } from "hardhat/types";
+import { HardhatNetworkAccountUserConfig, HardhatUserConfig } from "hardhat/types";
+import "@nomicfoundation/hardhat-toolbox";
+
 import { KeyValueStoreClient } from "defender-kvstore-client";
 
 import { default as adrastiaConfig } from "./adrastia.config";
@@ -18,7 +18,7 @@ import "log-timestamp";
 import { AxiosProxyConfig } from "axios";
 import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
-import { formatUnits, parseUnits } from "ethers/lib/utils";
+import { formatUnits, parseUnits } from "ethers";
 
 dotenv.config();
 
@@ -26,6 +26,14 @@ const DEFAULT_PATH = "m/44'/60'/0'/0/0";
 const DEFAULT_PASSPHRASE = "";
 const DEFAULT_GASMULTIPLIER = 1.25;
 const DEFAULT_ACCOUNT_COUNT = 50;
+
+function bigIntOrUndefined(value: string | bigint | number | undefined): bigint | undefined {
+    if (value === undefined || value === "" || value === null) {
+        return undefined;
+    }
+
+    return BigInt(value);
+}
 
 function parseIntOrUndefined(value: string | undefined): number | undefined {
     if (value === undefined || value === "" || value === null) {
@@ -163,11 +171,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         }
 
         const updateTxOptions: UpdateTransactionOptions = {
-            gasLimit: txConfig.gasLimit,
+            gasLimit: bigIntOrUndefined(txConfig.gasLimit),
             transactionTimeout: transactionTimeout,
-            gasPriceMultiplierDividend: gasPriceMultiplierDividend,
-            gasPriceMultiplierDivisor: gasPriceMultiplierDivisor,
-            maxGasPrice: maxGasPrice,
+            gasPriceMultiplierDividend: bigIntOrUndefined(gasPriceMultiplierDividend),
+            gasPriceMultiplierDivisor: bigIntOrUndefined(gasPriceMultiplierDivisor),
+            maxGasPrice: bigIntOrUndefined(maxGasPrice),
         };
 
         var updateTxHandler: UpdateTransactionHandler;
@@ -268,7 +276,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     });
 
 const config: HardhatUserConfig = {
-    solidity: "0.8.15",
+    solidity: "0.8.13",
     networks: {
         hardhat: {
             forking: process.env.FORKING_URL && {
@@ -279,6 +287,16 @@ const config: HardhatUserConfig = {
                 auto: true,
                 interval: 2000,
             },
+            accounts: process.env.PRIVATE_KEY_UPDATER ? [
+                {
+                    privateKey: process.env.PRIVATE_KEY_DEPLOYER,
+                    balance: "50000000000000000000", // 50 ETH
+                } as HardhatNetworkAccountUserConfig,
+                {
+                    privateKey: process.env.PRIVATE_KEY_UPDATER,
+                    balance: "50000000000000000000", // 50 ETH
+                } as HardhatNetworkAccountUserConfig
+            ] : undefined,
         },
         polygon: {
             url: process.env.POLYGON_URL,

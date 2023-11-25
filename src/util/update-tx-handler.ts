@@ -4,32 +4,32 @@
  */
 import Timeout from "await-timeout";
 
-import { ethers, BigNumber, BigNumberish, BytesLike, Signer, ContractTransaction, Overrides } from "ethers";
+import { ethers, BytesLike, Signer, ContractTransaction, Overrides, ContractTransactionResponse, Addressable } from "ethers";
 import { IUpdateable } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 
 import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
 
-const ONE_GWEI = BigNumber.from("1000000000");
+const ONE_GWEI = BigInt("1000000000");
 
 export type UpdateTransactionOptions = {
-    gasLimit?: BigNumberish;
-    gasPriceMultiplierDividend?: number;
-    gasPriceMultiplierDivisor?: number;
+    gasLimit?: bigint;
+    gasPriceMultiplierDividend?: bigint;
+    gasPriceMultiplierDivisor?: bigint;
     waitForConfirmations?: number;
     transactionTimeout?: number;
-    maxGasPrice?: BigNumberish; // In wei
+    maxGasPrice?: bigint; // In wei
 };
 
 export interface IUpdateTransactionHandler {
     sendUpdateTx(
-        updateable: string,
+        updateable: string | Addressable,
         updateData: BytesLike,
         signer: Signer,
         options?: UpdateTransactionOptions
     ): Promise<void>;
 
-    handleUpdateTx(tx: ContractTransaction, signer: Signer): Promise<void>;
+    handleUpdateTx(tx: ContractTransactionResponse, signer: Signer): Promise<void>;
 }
 
 export class UpdateTransactionHandler implements IUpdateTransactionHandler {
@@ -47,10 +47,10 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
-        var gasPriceToUse = tx.gasPrice.mul(12).div(10).add(ONE_GWEI);
+        var gasPriceToUse: bigint = ((tx.gasPrice * 12n) / 10n) + ONE_GWEI;
 
-        const gasPriceFromProvider = (await signer.getGasPrice()).mul(12).div(10).add(ONE_GWEI);
-        if (gasPriceFromProvider.gt(gasPriceToUse)) {
+        const gasPriceFromProvider: bigint = ((((await signer.provider.getFeeData()).gasPrice) * 12n) / 10n) + ONE_GWEI;
+        if (gasPriceFromProvider > gasPriceToUse) {
             gasPriceToUse = gasPriceFromProvider;
         }
 
@@ -58,14 +58,14 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             "Dropping transaction with nonce " +
                 tx.nonce +
                 " and gas price " +
-                ethers.utils.formatUnits(gasPriceToUse, "gwei")
+                ethers.formatUnits(gasPriceToUse, "gwei")
         );
 
         // Transfer 0 ether to self to drop and replace the transaction
         const replacementTx = await signer.sendTransaction({
             from: signerAddress,
             to: signerAddress,
-            value: ethers.utils.parseEther("0"),
+            value: ethers.parseEther("0"),
             nonce: tx.nonce,
             gasPrice: gasPriceToUse,
         });
@@ -80,7 +80,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         }
     }
 
-    async handleUpdateTx(tx: ContractTransaction, signer: Signer) {
+    async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer) {
         try {
             console.log(
                 "Waiting up to " +
@@ -99,7 +99,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             const receipt = await tx.wait(confirmationsRequired);
 
-            console.log("Transaction confirmed with " + receipt.confirmations + " confirmations: " + tx.hash);
+            const numConfirmations = await receipt.confirmations();
+
+            console.log("Transaction confirmed with " + numConfirmations + " confirmations: " + tx.hash);
         } catch (e) {
             if (e.message === "Timeout") {
                 console.log("Transaction timed out: " + tx.hash + ". Dropping...");
@@ -112,51 +114,53 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     }
 
     async sendUpdateTxWithOverrides(updateable: string, updateData: BytesLike, signer: Signer, overrides: Overrides) {
-        const updateableContract = new ethers.Contract(updateable, IUPDATEABLE_ABI, signer) as IUpdateable;
+        const updateableContract = new ethers.Contract(updateable, IUPDATEABLE_ABI, signer) as unknown as IUpdateable;
 
         return await updateableContract.update(updateData, overrides);
     }
 
-    async sendUpdateTx(updateable: string, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
-        var gasPriceFromSigner = await signer.getGasPrice();
-        var gasPrice = gasPriceFromSigner;
+    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
+        var gasPriceFromSigner: bigint = (await signer.provider.getFeeData()).gasPrice;
+        var gasPrice: bigint = gasPriceFromSigner;
 
-        console.log("Gas price from signer: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+        console.log("Gas price from signer: " + ethers.formatUnits(gasPrice, "gwei"));
 
         if (options.gasPriceMultiplierDividend && options.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the specified multiplier
-            gasPrice = gasPrice.mul(options.gasPriceMultiplierDividend).div(options.gasPriceMultiplierDivisor);
+            gasPrice = (gasPrice * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
 
-            console.log("Gas price adjusted by tx options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+            console.log("Gas price adjusted by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
         } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the default multiplier
-            gasPrice = gasPrice
-                .mul(this.updateTxOptions.gasPriceMultiplierDividend)
-                .div(this.updateTxOptions.gasPriceMultiplierDivisor);
+            gasPrice = (gasPrice
+                * this.updateTxOptions.gasPriceMultiplierDividend) /
+                this.updateTxOptions.gasPriceMultiplierDivisor;
 
-            console.log("Gas price adjusted by instance options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+            console.log("Gas price adjusted by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
 
         // Cap the gas price if specified
-        if (options.maxGasPrice && gasPrice.gt(options.maxGasPrice)) {
-            gasPrice = BigNumber.from(options.maxGasPrice);
+        if (options.maxGasPrice && gasPrice > options.maxGasPrice) {
+            gasPrice = options.maxGasPrice;
 
-            console.log("Gas price capped by tx options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+            console.log("Gas price capped by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
-        if (this.updateTxOptions.maxGasPrice && gasPrice.gt(this.updateTxOptions.maxGasPrice)) {
-            gasPrice = BigNumber.from(this.updateTxOptions.maxGasPrice);
+        if (this.updateTxOptions.maxGasPrice && gasPrice > this.updateTxOptions.maxGasPrice) {
+            gasPrice = this.updateTxOptions.maxGasPrice;
 
-            console.log("Gas price capped by instance options: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+            console.log("Gas price capped by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
-        if (gasPrice.lt(gasPriceFromSigner)) {
+        if (gasPrice < gasPriceFromSigner) {
             throw new Error(
                 "Calculated gas price is less than the gas price from the signer. The transaction will fail. Aborting..."
             );
         }
 
-        console.log("Sending update transaction with gas price: " + ethers.utils.formatUnits(gasPrice, "gwei"));
+        console.log("Sending update transaction with gas price: " + ethers.formatUnits(gasPrice, "gwei"));
 
-        const tx = await this.sendUpdateTxWithOverrides(updateable, updateData, signer, {
+        const updateableAddress = typeof updateable === "string" ? updateable : await updateable.getAddress();
+
+        const tx = await this.sendUpdateTxWithOverrides(updateableAddress, updateData, signer, {
             gasLimit: options?.gasLimit ?? this.updateTxOptions.gasLimit,
             gasPrice: gasPrice,
         });
@@ -175,7 +179,7 @@ export class AciUpdateTransactionHandler extends UpdateTransactionHandler {
             updateable,
             this.automationCompatibleInterface.abi,
             signer
-        ) as AutomationCompatibleInterface;
+        ) as unknown as AutomationCompatibleInterface;
 
         return await updateableContract.performUpkeep(updateData, overrides);
     }

@@ -1,7 +1,6 @@
 // Import dependencies available in the autotask environment
 import { DefenderRelayProvider, DefenderRelaySigner } from "defender-relay-client/lib/ethers";
-import { BaseContract, BigNumber, ethers } from "ethers";
-import { Signer } from "@ethersproject/abstract-signer";
+import { AbiCoder, BaseContract, ethers, Signer } from "ethers";
 
 // Import typechain
 import { IERC165 } from "../../typechain/openzeppelin-v4";
@@ -235,7 +234,7 @@ export class AdrastiaUpdater {
                     accumulatorAddress,
                     LIQUIDITY_ACCUMULATOR_ABI,
                     this.signer
-                ) as LiquidityAccumulator;
+                ) as unknown as LiquidityAccumulator;
 
                 las.push(accumulator);
 
@@ -249,7 +248,7 @@ export class AdrastiaUpdater {
                     accumulatorAddress,
                     PRICE_ACCUMULATOR_ABI,
                     this.signer
-                ) as PriceAccumulator;
+                ) as unknown as PriceAccumulator;
 
                 pas.push(accumulator);
 
@@ -267,7 +266,7 @@ export class AdrastiaUpdater {
         }
 
         // Assume the oracle implements IERC165
-        const erc165: IERC165 = new ethers.Contract(oracleAddress, IERC165_ABI, this.signer) as IERC165;
+        const erc165: IERC165 = new ethers.Contract(oracleAddress, IERC165_ABI, this.signer) as unknown as IERC165;
 
         // Check if the oracle has a liquidity accumulator
         if (await erc165.supportsInterface(AdrastiaUpdater.IHASLIQUIDITYACCUMULATOR_INTERFACEID)) {
@@ -275,13 +274,13 @@ export class AdrastiaUpdater {
                 oracleAddress,
                 HAS_LIQUIDITY_ACCUMULATOR_ABI,
                 this.signer
-            ) as IHasLiquidityAccumulator;
+            ) as unknown as IHasLiquidityAccumulator;
             const accumulatorAddress = await hasAccumulator.liquidityAccumulator();
             const accumulator: LiquidityAccumulator = new ethers.Contract(
                 accumulatorAddress,
                 LIQUIDITY_ACCUMULATOR_ABI,
                 this.signer
-            ) as LiquidityAccumulator;
+            ) as unknown as LiquidityAccumulator;
 
             las.push(accumulator);
 
@@ -294,13 +293,13 @@ export class AdrastiaUpdater {
                 oracleAddress,
                 HAS_PRICE_ACCUMULATOR_ABI,
                 this.signer
-            ) as IHasPriceAccumulator;
+            ) as unknown as IHasPriceAccumulator;
             const accumulatorAddress = await hasAccumulator.priceAccumulator();
             const accumulator: PriceAccumulator = new ethers.Contract(
                 accumulatorAddress,
                 PRICE_ACCUMULATOR_ABI,
                 this.signer
-            ) as PriceAccumulator;
+            ) as unknown as PriceAccumulator;
 
             pas.push(accumulator);
 
@@ -313,7 +312,7 @@ export class AdrastiaUpdater {
                 oracleAddress,
                 AGGREGATED_ORACLE_ABI,
                 this.signer
-            ) as IAggregatedOracle;
+            ) as unknown as IAggregatedOracle;
 
             const underlyingOracles: string[] = await oracle.getOraclesFor(token);
 
@@ -335,7 +334,7 @@ export class AdrastiaUpdater {
                 oracleAddress,
                 ORACLE_AGGREGATOR_ABI,
                 this.signer
-            ) as IOracleAggregator;
+            ) as unknown as IOracleAggregator;
 
             const underlyingOracles: string[] = (await oracle.getOracles(token)).map((oracle) => oracle.oracle);
 
@@ -352,8 +351,8 @@ export class AdrastiaUpdater {
         }
 
         // Add all accumulators to the store
-        const lasToStore = las.flatMap((accumulator) => accumulator.address).join(",");
-        const pasToStore = pas.flatMap((accumulator) => accumulator.address).join(",");
+        const lasToStore = las.flatMap((accumulator) => accumulator.target).join(",");
+        const pasToStore = pas.flatMap((accumulator) => accumulator.target).join(",");
 
         try {
             await this.store.put(lasStoreKey, lasToStore);
@@ -368,15 +367,15 @@ export class AdrastiaUpdater {
         };
     }
 
-    async getAccumulatorUpdateThreshold(accumulator: IAccumulator): Promise<BigNumber> {
-        console.log("Getting update threshold for accumulator: " + accumulator.address);
+    async getAccumulatorUpdateThreshold(accumulator: IAccumulator): Promise<bigint> {
+        console.log("Getting update threshold for accumulator: " + accumulator.target);
 
-        const updateThresholdStoreKey = this.chain + "." + accumulator.address + ".updateThreshold";
+        const updateThresholdStoreKey = this.chain + "." + accumulator.target + ".updateThreshold";
         const updateThresholdFromStore = await this.store.get(updateThresholdStoreKey);
 
         if (updateThresholdFromStore !== undefined && updateThresholdFromStore !== null) {
             try {
-                const updateThreshold = BigNumber.from(updateThresholdFromStore);
+                const updateThreshold = BigInt(updateThresholdFromStore);
                 console.log("Update threshold for accumulator from store: " + updateThreshold.toString());
 
                 return updateThreshold;
@@ -392,10 +391,10 @@ export class AdrastiaUpdater {
     }
 
     async accumulatorNeedsCriticalUpdate(accumulator: IAccumulator, token: string): Promise<boolean> {
-        console.log("Checking if accumulator needs a critical update: " + accumulator.address);
+        console.log("Checking if accumulator needs a critical update: " + accumulator.target);
 
         const updateThreshold = await this.getAccumulatorUpdateThreshold(accumulator);
-        const criticalUpdateThreshold = updateThreshold.add(updateThreshold.div(2)); // updateThreshold * 1.5
+        const criticalUpdateThreshold = updateThreshold + (updateThreshold / 2n); // updateThreshold * 1.5
         console.log("Critical update threshold: " + criticalUpdateThreshold);
 
         const criticalUpdateNeeded = await accumulator.changeThresholdSurpassed(token, criticalUpdateThreshold);
@@ -409,12 +408,12 @@ export class AdrastiaUpdater {
     async updateIsDelayed(contract: BaseContract, token: string): Promise<boolean> {
         if (this.updateDelay <= 0) return false;
 
-        console.log("Checking if accumulator update is delayed: " + contract.address + " (token: " + token + ")");
+        console.log("Checking if accumulator update is delayed: " + contract.target + " (token: " + token + ")");
 
         const storeKey =
             this.chain +
             "." +
-            contract.address +
+            contract.target +
             "." +
             token +
             ".updateNeededSince" +
@@ -455,12 +454,12 @@ export class AdrastiaUpdater {
             return;
         }
 
-        console.log("Resetting update delay for contract: " + contract.address + " (token: " + token + ")");
+        console.log("Resetting update delay for contract: " + contract.target + " (token: " + token + ")");
 
         const storeKey =
             this.chain +
             "." +
-            contract.address +
+            contract.target +
             "." +
             token +
             ".updateNeededSince" +
@@ -470,7 +469,7 @@ export class AdrastiaUpdater {
     }
 
     async generateLaCheckUpdateData(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig) {
-        return ethers.utils.hexZeroPad(token.address, 32);
+        return ethers.zeroPadValue(token.address, 32);
     }
 
     async generateLaUpdateData(
@@ -488,7 +487,7 @@ export class AdrastiaUpdater {
         // Get the latest block timestamp
         const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
 
-        return ethers.utils.defaultAbiCoder.encode(
+        return AbiCoder.defaultAbiCoder().encode(
             ["address", "uint", "uint", "uint"],
             [token.address, tokenLiquidity, quoteTokenLiquidity, blockTimestamp]
         );
@@ -510,7 +509,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            console.log("Updating liquidity accumulator:", liquidityAccumulator.address);
+            console.log("Updating liquidity accumulator:", liquidityAccumulator.target);
 
             const updateData = await this.generateLaUpdateData(liquidityAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
@@ -519,8 +518,8 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.address, updateData, this.signer, {
-                    gasLimit: this.useGasLimit,
+                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.target, updateData, this.signer, {
+                    gasLimit: BigInt(this.useGasLimit),
                 });
             }
         }
@@ -528,9 +527,9 @@ export class AdrastiaUpdater {
         await this.resetUpdateDelay(liquidityAccumulator, token.address);
     }
 
-    calculateChange(a: BigNumber, b: BigNumber, changePrecision: BigNumber) {
+    calculateChange(a: bigint, b: bigint, changePrecision: bigint) {
         // Ensure a is never smaller than b
-        if (a.lt(b)) {
+        if (a < b) {
             var temp = a;
             a = b;
             b = temp;
@@ -538,49 +537,49 @@ export class AdrastiaUpdater {
 
         // a >= b
 
-        if (a.eq(0)) {
+        if (a === 0n) {
             // a == b == 0 (since a >= b), therefore no change
             return {
-                change: BigNumber.from(0),
+                change: 0n,
                 isInfinite: false,
             };
-        } else if (b.eq(0)) {
+        } else if (b === 0n) {
             // (a > 0 && b == 0) => change threshold passed
             // Zero to non-zero always returns true
             return {
-                change: BigNumber.from(0),
+                change: 0n,
                 isInfinite: true,
             };
         }
 
-        const delta = a.sub(b); // a >= b, therefore no underflow
-        const preciseDelta = delta.mul(changePrecision);
+        const delta = a - b; // a >= b, therefore no underflow
+        const preciseDelta = delta * changePrecision;
 
         // If the delta is so large that multiplying by CHANGE_PRECISION overflows, we assume that
         // the change threshold has been surpassed.
         // If our assumption is incorrect, the accumulator will be extra-up-to-date, which won't
         // really break anything, but will cost more gas in keeping this accumulator updated.
-        if (preciseDelta.lt(delta))
+        if (preciseDelta < delta)
             return {
-                change: BigNumber.from(0),
+                change: 0n,
                 isInfinite: true,
             };
 
         return {
-            change: preciseDelta.div(b),
+            change: preciseDelta / b,
             isInfinite: false,
         };
     }
 
-    async getAccumulatorQuoteTokenDecimals(accumulator: PriceAccumulator): Promise<number> {
-        console.log("Getting quote token decimals for accumulator: " + accumulator.address);
+    async getAccumulatorQuoteTokenDecimals(accumulator: PriceAccumulator): Promise<bigint> {
+        console.log("Getting quote token decimals for accumulator: " + accumulator.target);
 
-        const quoteTokenDecimalsStoreKey = this.chain + "." + accumulator.address + ".quoteTokenDecimals";
+        const quoteTokenDecimalsStoreKey = this.chain + "." + accumulator.target + ".quoteTokenDecimals";
         const quoteTokenDecimalsFromStore = await this.store.get(quoteTokenDecimalsStoreKey);
 
         if (quoteTokenDecimalsFromStore !== undefined && quoteTokenDecimalsFromStore !== null) {
             try {
-                const quoteTokenDecimals = parseInt(quoteTokenDecimalsFromStore);
+                const quoteTokenDecimals = BigInt(quoteTokenDecimalsFromStore);
                 console.log("Quote token decimals for accumulator from store: " + quoteTokenDecimals.toString());
 
                 return quoteTokenDecimals;
@@ -595,15 +594,15 @@ export class AdrastiaUpdater {
         return quoteTokenDecimals;
     }
 
-    async getAccumulatorMaxUpdateDelay(accumulator: PriceAccumulator): Promise<BigNumber> {
-        console.log("Getting max update delay for accumulator: " + accumulator.address);
+    async getAccumulatorMaxUpdateDelay(accumulator: PriceAccumulator): Promise<bigint> {
+        console.log("Getting max update delay for accumulator: " + accumulator.target);
 
-        const maxUpdateDelayStoreKey = this.chain + "." + accumulator.address + ".maxUpdateDelay";
+        const maxUpdateDelayStoreKey = this.chain + "." + accumulator.target + ".maxUpdateDelay";
         const maxUpdateDelayFromStore = await this.store.get(maxUpdateDelayStoreKey);
 
         if (maxUpdateDelayFromStore !== undefined && maxUpdateDelayFromStore !== null) {
             try {
-                const maxUpdateDelay = BigNumber.from(maxUpdateDelayFromStore);
+                const maxUpdateDelay = BigInt(maxUpdateDelayFromStore);
                 console.log("Max update delay for accumulator from store: " + maxUpdateDelay.toString());
 
                 return maxUpdateDelay;
@@ -1191,31 +1190,31 @@ export class AdrastiaUpdater {
         return weightedMedian(prices, weights);
     }
 
-    async validatePrice(accumulator: PriceAccumulator, accumulatorPrice: BigNumber, token: TokenConfig) {
+    async validatePrice(accumulator: PriceAccumulator, accumulatorPrice: bigint, token: TokenConfig) {
         var validated = false;
-        var apiPrice = BigNumber.from(0);
+        var apiPrice = 0n;
         var usePrice = accumulatorPrice;
 
-        console.log("Validating price for accumulator: " + accumulator.address);
+        console.log("Validating price for accumulator: " + accumulator.target);
 
         const quoteTokenDecimals = await this.getAccumulatorQuoteTokenDecimals(accumulator);
 
-        const updateData = ethers.utils.hexZeroPad(token.address, 32);
+        const updateData = ethers.zeroPadValue(token.address, 32);
 
         try {
-            apiPrice = ethers.utils.parseUnits(
-                (await this.fetchOffchainPrice(token)).toFixed(quoteTokenDecimals),
+            apiPrice = ethers.parseUnits(
+                (await this.fetchOffchainPrice(token)).toFixed(Number(quoteTokenDecimals)),
                 quoteTokenDecimals
             );
 
-            console.log("API price =", ethers.utils.formatUnits(apiPrice, quoteTokenDecimals));
-            console.log("Accumulator price =", ethers.utils.formatUnits(accumulatorPrice, quoteTokenDecimals));
+            console.log("API price =", ethers.formatUnits(apiPrice, quoteTokenDecimals));
+            console.log("Accumulator price =", ethers.formatUnits(accumulatorPrice, quoteTokenDecimals));
 
-            const diff = this.calculateChange(accumulatorPrice, apiPrice, BigNumber.from("10000")); // in bps
+            const diff = this.calculateChange(accumulatorPrice, apiPrice, BigInt("10000")); // in bps
 
             console.log("Change =", (diff.isInfinite ? "infinite" : diff.change.toString()) + " bps");
 
-            if (!diff.isInfinite && diff.change.lte(token.validation.allowedChangeBps)) {
+            if (!diff.isInfinite && diff.change <= BigInt(token.validation.allowedChangeBps)) {
                 validated = true;
                 usePrice = accumulatorPrice;
             }
@@ -1250,7 +1249,7 @@ export class AdrastiaUpdater {
         } else {
             console.log(
                 "Validation succeeded. Using price of " +
-                    ethers.utils.formatUnits(usePrice, quoteTokenDecimals) +
+                    ethers.formatUnits(usePrice, quoteTokenDecimals) +
                     " for on-chain validation."
             );
         }
@@ -1262,7 +1261,7 @@ export class AdrastiaUpdater {
     }
 
     async generatePaCheckUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig) {
-        return ethers.utils.hexZeroPad(token.address, 32);
+        return ethers.zeroPadValue(token.address, 32);
     }
 
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
@@ -1282,7 +1281,7 @@ export class AdrastiaUpdater {
             price = validation.usePrice;
         }
 
-        return ethers.utils.defaultAbiCoder.encode(["address", "uint", "uint"], [token.address, price, blockTimestamp]);
+        return AbiCoder.defaultAbiCoder().encode(["address", "uint", "uint"], [token.address, price, blockTimestamp]);
     }
 
     async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig) {
@@ -1301,7 +1300,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            console.log("Updating price accumulator:", priceAccumulator.address);
+            console.log("Updating price accumulator:", priceAccumulator.target);
 
             const updateData = await this.generatePaUpdateData(priceAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
@@ -1310,8 +1309,8 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(priceAccumulator.address, updateData, this.signer, {
-                    gasLimit: this.useGasLimit,
+                await this.updateTxHandler.sendUpdateTx(priceAccumulator.target, updateData, this.signer, {
+                    gasLimit: BigInt(this.useGasLimit),
                 });
             }
         }
@@ -1320,9 +1319,9 @@ export class AdrastiaUpdater {
     }
 
     async getOraclePeriod(oracle: AggregatedOracle): Promise<number> {
-        console.log("Getting period for oracle: " + oracle.address);
+        console.log("Getting period for oracle: " + oracle.target);
 
-        const periodStoreKey = this.chain + "." + oracle.address + ".period";
+        const periodStoreKey = this.chain + "." + oracle.target + ".period";
 
         const periodFromStore = await this.store.get(periodStoreKey);
         if (periodFromStore !== undefined && periodFromStore !== null && !isNaN(parseInt(periodFromStore))) {
@@ -1335,22 +1334,22 @@ export class AdrastiaUpdater {
 
         console.log("Period for oracle: " + period);
 
-        await this.store.put(periodStoreKey, period.toNumber().toString());
+        await this.store.put(periodStoreKey, Number(period).toString());
 
-        return period.toNumber();
+        return Number(period);
     }
 
     async oracleNeedsCriticalUpdate(oracle: AggregatedOracle, token: string): Promise<boolean> {
-        console.log("Checking if oracle needs a critical update: " + oracle.address);
+        console.log("Checking if oracle needs a critical update: " + oracle.target);
 
         const period = await this.getOraclePeriod(oracle);
 
-        const updateData = ethers.utils.hexZeroPad(token, 32);
+        const updateData = ethers.zeroPadValue(token, 32);
 
         const timeSinceLastUpdate = await oracle.timeSinceLastUpdate(updateData);
         console.log("Time since last update: " + timeSinceLastUpdate);
 
-        const criticalUpdateNeeded = timeSinceLastUpdate.gte(period * 1.5);
+        const criticalUpdateNeeded = timeSinceLastUpdate >= BigInt(period * 1.5);
         if (criticalUpdateNeeded) {
             console.log("Critical update is needed");
         }
@@ -1359,7 +1358,7 @@ export class AdrastiaUpdater {
     }
 
     async handleOracleUpdate(oracle: AggregatedOracle, token: string) {
-        const updateData = ethers.utils.hexZeroPad(token, 32);
+        const updateData = ethers.zeroPadValue(token, 32);
 
         if (this.dryRun || (await oracle.canUpdate(updateData))) {
             if (this.onlyCritical) {
@@ -1374,11 +1373,11 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            console.log("Updating oracle:", oracle.address);
+            console.log("Updating oracle:", oracle.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(oracle.address, updateData, this.signer, {
-                    gasLimit: this.useGasLimit,
+                await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, {
+                    gasLimit: BigInt(this.useGasLimit),
                 });
             }
         }
@@ -1391,7 +1390,7 @@ export class AdrastiaUpdater {
             oracleAddress,
             AGGREGATED_ORACLE_ABI,
             this.signer
-        ) as AggregatedOracle;
+        ) as unknown as AggregatedOracle;
 
         const { las, pas } = await this.getAccumulators(oracleAddress, token.address);
 
@@ -1446,7 +1445,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
                         throw new Error("Cannot parse gas price from API");
                     }
 
-                    gasPrice = ethers.utils.parseUnits(fastGas.toString(), "gwei");
+                    gasPrice = ethers.parseUnits(fastGas.toString(), "gwei");
                 } else {
                     const responseBody = response.data ? JSON.stringify(response.data) : "";
 
@@ -1473,11 +1472,11 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
             throw new Error("Cannot fetch fast gas price");
         }
 
-        const gasPriceFormatted = ethers.utils.commify(ethers.utils.formatUnits(gasPrice, "gwei"));
+        const gasPriceFormatted = ethers.formatUnits(gasPrice, "gwei");
 
         console.log("Fast gas price: " + gasPriceFormatted);
 
-        return ethers.utils.defaultAbiCoder.encode(["address", "uint"], [token.address, gasPrice]);
+        return AbiCoder.defaultAbiCoder().encode(["address", "uint"], [token.address, gasPrice]);
     }
 
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
@@ -1486,9 +1485,9 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
         // Get the latest block timestamp
         const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
         // Encode the timestamp
-        const encodedTimestamp = ethers.utils.defaultAbiCoder.encode(["uint"], [blockTimestamp]);
+        const encodedTimestamp = AbiCoder.defaultAbiCoder().encode(["uint"], [blockTimestamp]);
         // Concatenate the checkUpdateData and the timestamp
-        const updateData = ethers.utils.hexConcat([checkUpdateData, encodedTimestamp]);
+        const updateData = ethers.concat([checkUpdateData, encodedTimestamp]);
 
         return updateData;
     }
@@ -1499,9 +1498,9 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
 
     async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig) {
         // Encode token address as bytes array
-        const checkUpdateData = await ethers.utils.defaultAbiCoder.encode(["address"], [token.address]);
+        const checkUpdateData = await AbiCoder.defaultAbiCoder().encode(["address"], [token.address]);
 
-        const upkeep: any = await automatable.callStatic.checkUpkeep(checkUpdateData);
+        const upkeep: any = await automatable.checkUpkeep.staticCall(checkUpdateData);
 
         if (this.dryRun || upkeep.upkeepNeeded) {
             if (await this.updateIsDelayed(automatable, token.address)) {
@@ -1509,11 +1508,11 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
                 return;
             }
 
-            console.log("Updating ACI:", automatable.address);
+            console.log("Updating ACI:", automatable.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(automatable.address, upkeep.performData, this.signer, {
-                    gasLimit: this.useGasLimit,
+                await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, {
+                    gasLimit: BigInt(this.useGasLimit),
                 });
             }
         }
@@ -1526,9 +1525,9 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             oracleAddress,
             this.automationCompatibleInterface.abi,
             this.signer
-        ) as AutomationCompatibleInterface;
+        ) as unknown as AutomationCompatibleInterface;
 
-        console.log("Checking if ACI needs an update: " + automatable.address);
+        console.log("Checking if ACI needs an update: " + automatable.target);
 
         try {
             await this.handleAciUpdate(automatable, token);
@@ -1626,7 +1625,7 @@ export async function handler(event) {
     });
 
     const updateTxHandler = new DefenderUpdateTransactionHandler({
-        gasLimit: txConfig.gasLimit,
+        gasLimit: BigInt(txConfig.gasLimit),
     });
 
     var proxyConfig: AxiosProxyConfig;
@@ -1658,7 +1657,7 @@ export async function handler(event) {
         oracleConfigs,
         target.chain,
         target.batch,
-        signer,
+        signer as unknown as Signer,
         store,
         txConfig.gasLimit,
         target.type === "critical",
@@ -1711,7 +1710,7 @@ async function runRepeat(
                 oracleConfigs,
                 chain,
                 batch,
-                signer,
+                signer as unknown as Signer,
                 store,
                 txConfig.gasLimit,
                 mode === "critical",

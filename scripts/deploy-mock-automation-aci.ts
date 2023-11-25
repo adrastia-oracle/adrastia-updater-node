@@ -4,9 +4,9 @@ async function main() {
     const factory = await ethers.getContractFactory("MockAutomationAci");
     const contract = await factory.deploy();
 
-    await contract.deployed();
+    await contract.waitForDeployment();
 
-    console.log("MockAutomationAci deployed to:", contract.address);
+    console.log("MockAutomationAci deployed to:", contract.target);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
