@@ -8,7 +8,7 @@ A lite-node to perform updates for the Adrastia oracle system.
 
 ### Requirements
 
--   node: v16 or later
+-   node: v18 or later
 -   yarn
 -   git
 
