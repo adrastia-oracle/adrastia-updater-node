@@ -93,6 +93,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         true
     )
     .addParam("maxGasPrice", "The maximum gas price to use (in gwei).", undefined, types.float, true)
+    .addParam("txType", "The numeric transaction type (either 0 or 2).", undefined, types.int, true)
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
@@ -164,6 +165,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const transactionTimeout = txConfig.validFor * 1000;
 
+        const txType = taskArgs.txType ?? 0;
+
         var maxGasPrice = undefined;
         if (taskArgs.maxGasPrice !== undefined) {
             if (taskArgs.maxGasPrice < 1) {
@@ -179,6 +182,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             gasPriceMultiplierDividend: bigIntOrUndefined(gasPriceMultiplierDividend),
             gasPriceMultiplierDivisor: bigIntOrUndefined(gasPriceMultiplierDivisor),
             maxGasPrice: bigIntOrUndefined(maxGasPrice),
+            txType: txType,
         };
 
         var updateTxHandler: UpdateTransactionHandler;
@@ -217,6 +221,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - every: ${taskArgs.every}`);
         console.log(`  - dryRun: ${taskArgs.dryRun}`);
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
+        console.log(`  - txType: ${txType}`);
         console.log(`  - delay: ${taskArgs.delay}`);
         console.log(`  - service: ${taskArgs.service}`);
         console.log(`  - type: ${taskArgs.type}`);

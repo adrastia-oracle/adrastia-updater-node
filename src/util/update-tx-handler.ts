@@ -4,7 +4,7 @@
  */
 import Timeout from "await-timeout";
 
-import { ethers, BytesLike, Signer, ContractTransaction, Overrides, ContractTransactionResponse, Addressable } from "ethers";
+import { ethers, BytesLike, Signer, ContractTransaction, Overrides, ContractTransactionResponse, Addressable, FeeData } from "ethers";
 import { IUpdateable } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 
@@ -19,6 +19,7 @@ export type UpdateTransactionOptions = {
     waitForConfirmations?: number;
     transactionTimeout?: number;
     maxGasPrice?: bigint; // In wei
+    txType?: number;
 };
 
 export interface IUpdateTransactionHandler {
@@ -48,10 +49,34 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
         // 20% + 1 GWEI more gas than previous
         var gasPriceToUse: bigint = ((tx.gasPrice * 12n) / 10n) + ONE_GWEI;
+        var maxFeePerGasToUse: bigint | null = tx.maxFeePerGas;
+        var maxPriorityFeePerGasToUse: bigint | null = tx.maxPriorityFeePerGas;
+        if (maxFeePerGasToUse !== null && maxFeePerGasToUse !== undefined) {
+            maxFeePerGasToUse = ((maxFeePerGasToUse * 12n) / 10n) + ONE_GWEI;
+        }
+        if (maxPriorityFeePerGasToUse !== null && maxPriorityFeePerGasToUse !== undefined) {
+            maxPriorityFeePerGasToUse = ((maxPriorityFeePerGasToUse * 12n) / 10n) + ONE_GWEI;
+        }
 
-        const gasPriceFromProvider: bigint = ((((await signer.provider.getFeeData()).gasPrice) * 12n) / 10n) + ONE_GWEI;
-        if (gasPriceFromProvider > gasPriceToUse) {
-            gasPriceToUse = gasPriceFromProvider;
+        // Check if the network is consuming more gas than when the transaction was submitted
+        const gasPriceData = await this.getGasPriceData(signer, {
+            gasPriceMultiplierDividend: 120n,
+            gasPriceMultiplierDivisor: 100n,
+        });
+        // Add 1 gwei just in-case the scaled gas price is the same as the original gas price
+        gasPriceData.gasPrice = gasPriceData.gasPrice + ONE_GWEI;
+        if (gasPriceData.maxFeePerGas !== null && gasPriceData.maxFeePerGas !== undefined) {
+            gasPriceData.maxFeePerGas = gasPriceData.maxFeePerGas + ONE_GWEI;
+        }
+        if (gasPriceData.maxPriorityFeePerGas !== null && gasPriceData.maxPriorityFeePerGas !== undefined) {
+            gasPriceData.maxPriorityFeePerGas = gasPriceData.maxPriorityFeePerGas + ONE_GWEI;
+        }
+        if (gasPriceData.gasPrice > gasPriceToUse) {
+            // The network is consuming more gas than when the transaction was submitted
+            // Replace the gas price with the scaled gas price from the provider
+            gasPriceToUse = gasPriceData.gasPrice;
+            maxFeePerGasToUse = gasPriceData.maxFeePerGas;
+            maxPriorityFeePerGasToUse = gasPriceData.maxPriorityFeePerGas;
         }
 
         console.log(
@@ -61,13 +86,18 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 ethers.formatUnits(gasPriceToUse, "gwei")
         );
 
+        const txType = this.updateTxOptions.txType ?? 0;
+
         // Transfer 0 ether to self to drop and replace the transaction
         const replacementTx = await signer.sendTransaction({
             from: signerAddress,
             to: signerAddress,
             value: ethers.parseEther("0"),
             nonce: tx.nonce,
-            gasPrice: gasPriceToUse,
+            type: txType,
+            gasPrice: txType === 2 ? undefined : gasPriceToUse,
+            maxFeePerGas: txType === 2 ? maxFeePerGasToUse : undefined,
+            maxPriorityFeePerGas: txType === 2 ? maxPriorityFeePerGasToUse : undefined,
         });
         try {
             await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
@@ -119,9 +149,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         return await updateableContract.update(updateData, overrides);
     }
 
-    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
-        var gasPriceFromSigner: bigint = (await signer.provider.getFeeData()).gasPrice;
+    async getGasPriceData(signer: Signer, options?: UpdateTransactionOptions) {
+        const feeData: FeeData = await signer.provider.getFeeData();
+        const gasPriceFromSigner = feeData.gasPrice;
+
         var gasPrice: bigint = gasPriceFromSigner;
+        var maxFeePerGas: bigint | null = feeData.maxFeePerGas;
+        var maxPriorityFeePerGas: bigint | null = feeData.maxPriorityFeePerGas;
 
         console.log("Gas price from signer: " + ethers.formatUnits(gasPrice, "gwei"));
 
@@ -129,12 +163,26 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             // Adjust the gas price by the specified multiplier
             gasPrice = (gasPrice * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
 
+            if (maxFeePerGas !== null && maxFeePerGas !== undefined
+                && maxPriorityFeePerGas !== null && maxPriorityFeePerGas !== undefined)
+            {
+                maxFeePerGas = (maxFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
+                maxPriorityFeePerGas = (maxPriorityFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
+            }
+
             console.log("Gas price adjusted by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
         } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the default multiplier
             gasPrice = (gasPrice
                 * this.updateTxOptions.gasPriceMultiplierDividend) /
                 this.updateTxOptions.gasPriceMultiplierDivisor;
+
+            if (maxFeePerGas !== null && maxFeePerGas !== undefined
+                && maxPriorityFeePerGas !== null && maxPriorityFeePerGas !== undefined)
+            {
+                maxFeePerGas = (maxFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) / this.updateTxOptions.gasPriceMultiplierDivisor;
+                maxPriorityFeePerGas = (maxPriorityFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) / this.updateTxOptions.gasPriceMultiplierDivisor;
+            }
 
             console.log("Gas price adjusted by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
@@ -156,16 +204,31 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             );
         }
 
-        console.log("Sending update transaction with gas price: " + ethers.formatUnits(gasPrice, "gwei"));
+        return {
+            gasPrice: gasPrice,
+            maxFeePerGas: maxFeePerGas,
+            maxPriorityFeePerGas: maxPriorityFeePerGas,
+        };
+    }
+
+    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
+        const gasPriceData = await this.getGasPriceData(signer, options);
+
+        console.log("Sending update transaction with gas price: " + ethers.formatUnits(gasPriceData.gasPrice, "gwei"));
 
         const updateableAddress = typeof updateable === "string" ? updateable : await updateable.getAddress();
 
+        const txType = options?.txType ?? this.updateTxOptions.txType ?? 0;
+
         const tx = await this.sendUpdateTxWithOverrides(updateableAddress, updateData, signer, {
+            type: txType,
             gasLimit: options?.gasLimit ?? this.updateTxOptions.gasLimit,
-            gasPrice: gasPrice,
+            gasPrice: txType === 2 ? undefined : gasPriceData.gasPrice,
+            maxFeePerGas: txType === 2 ? gasPriceData.maxFeePerGas : undefined,
+            maxPriorityFeePerGas: txType === 2 ? gasPriceData.maxPriorityFeePerGas : undefined,
         });
 
-        console.log("Sent update transaction: " + tx.hash);
+        console.log("Sent update transaction (tx type " + txType + "): " + tx.hash);
 
         await this.handleUpdateTx(tx, signer);
     }
