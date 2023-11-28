@@ -2,7 +2,7 @@
     "name": "adrastia-defender-autotasks",
     "version": "0.0.1",
     "main": "index.js",
-    "license": "MIT",
+    "license": "BUSL-1.1",
     "engines" : {
         "node" : ">=18.0.0"
     },
