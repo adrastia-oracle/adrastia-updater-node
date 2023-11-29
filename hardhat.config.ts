@@ -534,6 +534,54 @@ const config: HardhatUserConfig = {
                 parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
                 DEFAULT_GASMULTIPLIER,
         },
+        base: {
+            url: process.env.BASE_URL,
+            accounts: {
+                mnemonic: process.env.BASE_MNEMONIC,
+                path: process.env.BASE_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.BASE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.BASE_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.BASE_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
+        metis: {
+            url: process.env.METIS_URL,
+            accounts: {
+                mnemonic: process.env.METIS_MNEMONIC,
+                path: process.env.METIS_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.METIS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.METIS_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.METIS_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
+        gnosis: {
+            url: process.env.GNOSIS_URL,
+            accounts: {
+                mnemonic: process.env.GNOSIS_MNEMONIC,
+                path: process.env.GNOSIS_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.GNOSIS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.GNOSIS_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.GNOSIS_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
     },
 };
 
