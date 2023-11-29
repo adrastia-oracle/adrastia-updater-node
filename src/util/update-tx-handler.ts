@@ -111,6 +111,11 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     }
 
     async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer) {
+        const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 10;
+        if (confirmationsRequired === 0) {
+            return;
+        }
+
         try {
             console.log(
                 "Waiting up to " +
@@ -123,15 +128,15 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             console.log("Transaction mined: " + tx.hash);
 
-            const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 10;
+            if (confirmationsRequired > 1) {
+                console.log("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
 
-            console.log("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
+                const receipt = await tx.wait(confirmationsRequired);
 
-            const receipt = await tx.wait(confirmationsRequired);
+                const numConfirmations = await receipt.confirmations();
 
-            const numConfirmations = await receipt.confirmations();
-
-            console.log("Transaction confirmed with " + numConfirmations + " confirmations: " + tx.hash);
+                console.log("Transaction confirmed with " + numConfirmations + " confirmations: " + tx.hash);
+            }
         } catch (e) {
             if (e.message === "Timeout") {
                 console.log("Transaction timed out: " + tx.hash + ". Dropping...");

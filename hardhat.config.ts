@@ -94,6 +94,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     )
     .addParam("maxGasPrice", "The maximum gas price to use (in gwei).", undefined, types.float, true)
     .addParam("txType", "The numeric transaction type (either 0 or 2).", undefined, types.int, true)
+    .addParam("numConfirmations", "The number of confirmations to wait for after submitting a transaction.", 10, types.int, true)
     .setAction(async (taskArgs, hre) => {
         const accounts = await hre.ethers.getSigners();
 
@@ -166,6 +167,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         const transactionTimeout = txConfig.validFor * 1000;
 
         const txType = taskArgs.txType ?? 0;
+        const numConfirmations: number = taskArgs.numConfirmations;
 
         var maxGasPrice = undefined;
         if (taskArgs.maxGasPrice !== undefined) {
@@ -183,6 +185,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             gasPriceMultiplierDivisor: bigIntOrUndefined(gasPriceMultiplierDivisor),
             maxGasPrice: bigIntOrUndefined(maxGasPrice),
             txType: txType,
+            waitForConfirmations: numConfirmations,
         };
 
         var updateTxHandler: UpdateTransactionHandler;
@@ -221,6 +224,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         console.log(`  - every: ${taskArgs.every}`);
         console.log(`  - dryRun: ${taskArgs.dryRun}`);
         console.log(`  - transactionTimeout: ${transactionTimeout}`);
+        console.log(`  - numConfirmations: ${numConfirmations}`);
         console.log(`  - txType: ${txType}`);
         console.log(`  - delay: ${taskArgs.delay}`);
         console.log(`  - service: ${taskArgs.service}`);
