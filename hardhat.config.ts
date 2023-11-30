@@ -108,11 +108,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         if (redisEnabled) {
             console.log("Creating Redis client...");
 
-            const redisUsername = process.env.REDIS_USERNAME ?? "";
+            const redisUsername = process.env.REDIS_USERNAME || "";
             const redisPasswordBlob = process.env.REDIS_PASSWORD ? ":" + process.env.REDIS_PASSWORD : "";
-            const redisHost = process.env.REDIS_HOST ?? "127.0.0.1";
-            const redisPort = process.env.REDIS_PORT ?? "6379";
-            const redisDatabase = process.env.REDIS_DATABASE ?? "0";
+            const redisHost = process.env.REDIS_HOST || "127.0.0.1";
+            const redisPort = process.env.REDIS_PORT || "6379";
+            const redisDatabase = process.env.REDIS_DATABASE || "0";
             const redisAtBlob = redisUsername !== "" || redisPasswordBlob !== "" ? "@" : "";
 
             const redis = require("redis");
