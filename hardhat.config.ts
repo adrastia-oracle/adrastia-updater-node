@@ -311,9 +311,9 @@ const config: HardhatUserConfig = {
             ] : undefined,
         },
         polygon: {
-            url: process.env.POLYGON_URL,
+            url: process.env.POLYGON_URL ?? "",
             accounts: {
-                mnemonic: process.env.POLYGON_MNEMONIC,
+                mnemonic: process.env.POLYGON_MNEMONIC ?? "",
                 path: process.env.POLYGON_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGON_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -327,9 +327,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         ethereum: {
-            url: process.env.ETHEREUM_URL,
+            url: process.env.ETHEREUM_URL ?? "",
             accounts: {
-                mnemonic: process.env.ETHEREUM_MNEMONIC,
+                mnemonic: process.env.ETHEREUM_MNEMONIC ?? "",
                 path: process.env.ETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -343,9 +343,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         optimism: {
-            url: process.env.OPTIMISM_URL,
+            url: process.env.OPTIMISM_URL ?? "",
             accounts: {
-                mnemonic: process.env.OPTIMISM_MNEMONIC,
+                mnemonic: process.env.OPTIMISM_MNEMONIC ?? "",
                 path: process.env.OPTIMISM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.OPTIMISM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -359,9 +359,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         arbitrumOne: {
-            url: process.env.ARBITRUMONE_URL,
+            url: process.env.ARBITRUMONE_URL ?? "",
             accounts: {
-                mnemonic: process.env.ARBITRUMONE_MNEMONIC,
+                mnemonic: process.env.ARBITRUMONE_MNEMONIC ?? "",
                 path: process.env.ARBITRUMONE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ARBITRUMONE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -375,9 +375,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         avalanche: {
-            url: process.env.AVALANCHE_URL,
+            url: process.env.AVALANCHE_URL ?? "",
             accounts: {
-                mnemonic: process.env.AVALANCHE_MNEMONIC,
+                mnemonic: process.env.AVALANCHE_MNEMONIC ?? "",
                 path: process.env.AVALANCHE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.AVALANCHE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -391,9 +391,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         fantom: {
-            url: process.env.FANTOM_URL,
+            url: process.env.FANTOM_URL ?? "",
             accounts: {
-                mnemonic: process.env.FANTOM_MNEMONIC,
+                mnemonic: process.env.FANTOM_MNEMONIC ?? "",
                 path: process.env.FANTOM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.FANTOM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -407,9 +407,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         bsc: {
-            url: process.env.BSC_URL,
+            url: process.env.BSC_URL ?? "",
             accounts: {
-                mnemonic: process.env.BSC_MNEMONIC,
+                mnemonic: process.env.BSC_MNEMONIC ?? "",
                 path: process.env.BSC_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BSC_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -423,9 +423,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         evmos: {
-            url: process.env.EVMOS_URL,
+            url: process.env.EVMOS_URL ?? "",
             accounts: {
-                mnemonic: process.env.EVMOS_MNEMONIC,
+                mnemonic: process.env.EVMOS_MNEMONIC ?? "",
                 path: process.env.EVMOS_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.EVMOS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -439,9 +439,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         polygonZkEVM: {
-            url: process.env.POLYGONZKEVM_URL,
+            url: process.env.POLYGONZKEVM_URL ?? "",
             accounts: {
-                mnemonic: process.env.POLYGONZKEVM_MNEMONIC,
+                mnemonic: process.env.POLYGONZKEVM_MNEMONIC ?? "",
                 path: process.env.POLYGONZKEVM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.POLYGONZKEVM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -455,9 +455,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         moonbeam: {
-            url: process.env.MOONBEAM_URL,
+            url: process.env.MOONBEAM_URL ?? "",
             accounts: {
-                mnemonic: process.env.MOONBEAM_MNEMONIC,
+                mnemonic: process.env.MOONBEAM_MNEMONIC ?? "",
                 path: process.env.MOONBEAM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.MOONBEAM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -471,9 +471,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         bobaEthereum: {
-            url: process.env.BOBAETHEREUM_URL,
+            url: process.env.BOBAETHEREUM_URL ?? "",
             accounts: {
-                mnemonic: process.env.BOBAETHEREUM_MNEMONIC,
+                mnemonic: process.env.BOBAETHEREUM_MNEMONIC ?? "",
                 path: process.env.BOBAETHEREUM_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BOBAETHEREUM_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -487,9 +487,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         zkSyncEra: {
-            url: process.env.ZKSYNCERA_URL,
+            url: process.env.ZKSYNCERA_URL ?? "",
             accounts: {
-                mnemonic: process.env.ZKSYNCERA_MNEMONIC,
+                mnemonic: process.env.ZKSYNCERA_MNEMONIC ?? "",
                 path: process.env.ZKSYNCERA_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ZKSYNCERA_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -503,9 +503,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         filecoin: {
-            url: process.env.FILECOIN_URL,
+            url: process.env.FILECOIN_URL ?? "",
             accounts: {
-                mnemonic: process.env.FILECOIN_MNEMONIC,
+                mnemonic: process.env.FILECOIN_MNEMONIC ?? "",
                 path: process.env.FILECOIN_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.FILECOIN_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -519,9 +519,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         rootstock: {
-            url: process.env.ROOTSTOCK_URL,
+            url: process.env.ROOTSTOCK_URL ?? "",
             accounts: {
-                mnemonic: process.env.ROOTSTOCK_MNEMONIC,
+                mnemonic: process.env.ROOTSTOCK_MNEMONIC ?? "",
                 path: process.env.ROOTSTOCK_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.ROOTSTOCK_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -535,9 +535,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         base: {
-            url: process.env.BASE_URL,
+            url: process.env.BASE_URL ?? "",
             accounts: {
-                mnemonic: process.env.BASE_MNEMONIC,
+                mnemonic: process.env.BASE_MNEMONIC ?? "",
                 path: process.env.BASE_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.BASE_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -551,9 +551,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         metis: {
-            url: process.env.METIS_URL,
+            url: process.env.METIS_URL ?? "",
             accounts: {
-                mnemonic: process.env.METIS_MNEMONIC,
+                mnemonic: process.env.METIS_MNEMONIC ?? "",
                 path: process.env.METIS_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.METIS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
@@ -567,9 +567,9 @@ const config: HardhatUserConfig = {
                 DEFAULT_GASMULTIPLIER,
         },
         gnosis: {
-            url: process.env.GNOSIS_URL,
+            url: process.env.GNOSIS_URL ?? "",
             accounts: {
-                mnemonic: process.env.GNOSIS_MNEMONIC,
+                mnemonic: process.env.GNOSIS_MNEMONIC ?? "",
                 path: process.env.GNOSIS_PATH ?? DEFAULT_PATH,
                 passphrase: process.env.GNOSIS_PASSPHRASE ?? DEFAULT_PASSPHRASE,
                 count:
