@@ -1,5 +1,3 @@
-// Import dependencies available in the autotask environment
-import { DefenderRelayProvider, DefenderRelaySigner } from "defender-relay-client/lib/ethers";
 import { AbiCoder, BaseContract, ethers, Signer } from "ethers";
 
 // Import typechain
@@ -22,9 +20,7 @@ import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-
 import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
 
 // Import config
-import config, { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
-import { Speed } from "defender-relay-client";
-import { KeyValueStoreClient } from "defender-kvstore-client";
+import { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
 import { AggregatedOracle } from "../../typechain/adrastia-core/oracles";
 
 import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
@@ -34,7 +30,6 @@ import { IKeyValueStore } from "../util/key-value-store";
 import { IOracleAggregator } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 import {
-    DefenderUpdateTransactionHandler,
     IUpdateTransactionHandler,
     UpdateTransactionHandler,
 } from "../util/update-tx-handler";
@@ -1608,218 +1603,6 @@ export async function run(
             console.log("Updating all components for oracle =", oracleConfig.address, ", token =", token.address);
 
             await updater.keepUpdated(oracleConfig.address, token);
-        }
-    }
-}
-
-// Entrypoint for the Autotask
-export async function handler(event) {
-    const target = config.target;
-    const chainConfig = config.chains[target.chain];
-    const txConfig = chainConfig.txConfig[target.type];
-
-    const provider = new DefenderRelayProvider(event);
-    const signer = new DefenderRelaySigner(event, provider, {
-        speed: txConfig.speed as Speed,
-        validForSeconds: txConfig.validFor,
-    });
-
-    const updateTxHandler = new DefenderUpdateTransactionHandler({
-        gasLimit: BigInt(txConfig.gasLimit),
-    });
-
-    var proxyConfig: AxiosProxyConfig;
-
-    const { PROXY_HOST, PROXY_PORT, PROXY_USERNAME, PROXY_PASSWORD } = event.secrets;
-
-    if (PROXY_HOST && PROXY_PORT) {
-        proxyConfig = {
-            host: PROXY_HOST,
-            port: parseInt(PROXY_PORT),
-            auth:
-                PROXY_USERNAME || PROXY_PASSWORD
-                    ? { username: PROXY_USERNAME ?? "", password: PROXY_PASSWORD ?? "" }
-                    : undefined,
-        };
-    }
-
-    const oracleConfigs: OracleConfig[] = chainConfig.oracles;
-
-    const store: KeyValueStoreClient = new KeyValueStoreClient(event);
-
-    console.log(`Running batch ${target.batch} for target chain: ${target.chain}`);
-
-    if (proxyConfig) {
-        console.log(`Using proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
-    }
-
-    await run(
-        oracleConfigs,
-        target.chain,
-        target.batch,
-        signer as unknown as Signer,
-        store,
-        txConfig.gasLimit,
-        target.type === "critical",
-        config.dryRun,
-        updateTxHandler,
-        target.delay,
-        config.httpCacheSeconds,
-        config.type,
-        proxyConfig
-    );
-}
-
-async function sleepFor(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function runRepeat(
-    store: IKeyValueStore,
-    defenderCredentials: any,
-    chain: string,
-    mode: string,
-    batch: number,
-    repeatInterval: number,
-    repeatTimes: number,
-    updateDelay: number,
-    proxyConfig?: AxiosProxyConfig
-) {
-    const chainConfig = config.chains[chain];
-    const txConfig = chainConfig.txConfig[mode];
-
-    const provider = new DefenderRelayProvider(defenderCredentials);
-    const signer = new DefenderRelaySigner(defenderCredentials, provider, {
-        speed: txConfig.speed as Speed,
-        validForSeconds: txConfig.validFor,
-    });
-
-    const updateTxHandler = new DefenderUpdateTransactionHandler({
-        gasLimit: txConfig.gasLimit,
-    });
-
-    const oracleConfigs: OracleConfig[] = chainConfig.oracles;
-
-    var timesRepeated = 0;
-
-    while (timesRepeated++ < repeatTimes) {
-        try {
-            console.log(`Running batch ${batch} for target chain: ${chain}`);
-
-            await run(
-                oracleConfigs,
-                chain,
-                batch,
-                signer as unknown as Signer,
-                store,
-                txConfig.gasLimit,
-                mode === "critical",
-                config.dryRun,
-                updateTxHandler,
-                updateDelay,
-                config.httpCacheSeconds,
-                config.type,
-                proxyConfig
-            );
-        } catch (e) {
-            console.error(e);
-        }
-
-        console.log("Sleeping for", repeatInterval, "seconds");
-
-        await sleepFor(repeatInterval * 1000);
-    }
-}
-
-// To run locally (this code will not be executed in Autotasks)
-if (require.main === module) {
-    require("dotenv").config();
-
-    const yargs = require("yargs");
-
-    const argv = yargs
-        .command("start", "Starts the oracle updater bot", {
-            chain: {
-                description: "The chain to update the oracles for",
-                alias: "c",
-                type: "string",
-            },
-            every: {
-                description: "The interval in seconds to update the oracles",
-                alias: "e",
-                type: "number",
-            },
-            batch: {
-                description: "The batch of assets to update the oracles for",
-                alias: "b",
-                type: "number",
-                default: 1,
-            },
-            delay: {
-                description:
-                    "The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent",
-                alias: "d",
-                type: "number",
-                default: 0,
-            },
-        })
-        .help()
-        .alias("help", "h").argv;
-
-    if (argv._.includes("start")) {
-        const chain = argv.chain;
-
-        let apiKey: string, apiSecret: string;
-
-        if (chain) {
-            const chainInCaps = chain.toUpperCase();
-
-            apiKey = process.env[`${chainInCaps}_API_KEY`] as string;
-            apiSecret = process.env[`${chainInCaps}_API_SECRET`] as string;
-        } else {
-            apiKey = process.env.API_KEY as string;
-            apiSecret = process.env.API_SECRET as string;
-        }
-
-        var proxyConfig: AxiosProxyConfig;
-
-        if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
-            proxyConfig = {
-                host: process.env.PROXY_HOST,
-                port: parseInt(process.env.PROXY_PORT),
-                auth:
-                    process.env.PROXY_USERNAME || process.env.PROXY_PASSWORD
-                        ? { username: process.env.PROXY_USERNAME ?? "", password: process.env.PROXY_PASSWORD ?? "" }
-                        : undefined,
-            };
-        }
-
-        const store = new KeyValueStoreClient({ path: "store.json.tmp" });
-
-        if (argv.every) {
-            runRepeat(
-                store,
-                { apiKey, apiSecret },
-                argv.chain,
-                "normal",
-                argv.batch,
-                argv.every,
-                Number.MAX_SAFE_INTEGER,
-                argv.delay,
-                proxyConfig
-            )
-                .then(() => process.exit(0))
-                .catch((error: Error) => {
-                    console.error(error);
-                    process.exit(1);
-                });
-        } else {
-            runRepeat(store, { apiKey, apiSecret }, argv.chain, "normal", argv.batch, 0, 1, argv.delay, proxyConfig)
-                .then(() => process.exit(0))
-                .catch((error: Error) => {
-                    console.error(error);
-                    process.exit(1);
-                });
         }
     }
 }

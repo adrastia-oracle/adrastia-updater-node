@@ -1,20 +1,16 @@
 {
-    "name": "adrastia-defender-autotasks",
+    "name": "adrastia-automatos-node",
     "version": "0.0.1",
-    "main": "index.js",
     "license": "BUSL-1.1",
-    "engines" : {
-        "node" : ">=18.0.0"
+    "engines": {
+        "node": ">=18.0.0"
     },
     "scripts": {
         "clean-typechain": "rm -rf typechain",
-        "clean-stores": "rm -f store.json.tmp",
         "clean-dist": "rm -rf dist",
-        "clean": "yarn clean-stores && yarn clean-dist && yarn clean-typechain",
-        "build": "rollup -c -i src/tasks/oracle-updater.ts -o dist/tasks/oracle-updater.js -f cjs --bundleConfigAsCjs",
-        "run": "node dist/tasks/oracle-updater.js",
-        "bar": "yarn build && yarn run run",
-        "typechain:generate": "yarn typechain --target=ethers-v6 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain/adrastia-core && yarn typechain --target=ethers-v6 ./node_modules/adrastia-core-v4/artifacts/**/*.json --out-dir=./typechain/adrastia-core-v4 && yarn typechain --target=ethers-v6 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain/openzeppelin-v4 && yarn typechain --target=ethers-v6 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain/adrastia-periphery && yarn typechain --target=ethers-v6 ./artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json --out-dir=./typechain/local "
+        "clean": "yarn clean-dist && yarn clean-typechain && npx hardhat clean",
+        "typechain:generate": "yarn typechain --target=ethers-v6 ./node_modules/@adrastia-oracle/adrastia-core/artifacts/**/*.json --out-dir=./typechain/adrastia-core && yarn typechain --target=ethers-v6 ./node_modules/adrastia-core-v4/artifacts/**/*.json --out-dir=./typechain/adrastia-core-v4 && yarn typechain --target=ethers-v6 ./node_modules/@openzeppelin-v4/contracts/build/contracts/**/*.json --out-dir=./typechain/openzeppelin-v4 && yarn typechain --target=ethers-v6 ./node_modules/@adrastia-oracle/adrastia-periphery/artifacts/**/*.json --out-dir=./typechain/adrastia-periphery && yarn typechain --target=ethers-v6 ./artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json --out-dir=./typechain/local ",
+        "build": "npx hardhat compile && yarn typechain:generate"
     },
     "dependencies": {
         "@adrastia-oracle/adrastia-core": "3.0.0",
@@ -30,30 +26,21 @@
         "axios": "^0.27.2",
         "axios-cache-adapter": "^2.7.3",
         "axios-retry": "^3.3.1",
-        "defender-kvstore-client": "^1.44.0",
-        "defender-relay-client": "^1.44.0",
         "dotenv": "^16.3.1",
         "ethers": "^6.8.1",
         "redis": "^4.6.11",
-        "sd-notify": "^2.8.0",
-        "yargs": "17.7.2"
+        "sd-notify": "^2.8.0"
     },
     "devDependencies": {
         "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
-        "@rollup/plugin-commonjs": "^25.0.7",
-        "@rollup/plugin-json": "^6.0.1",
-        "@rollup/plugin-node-resolve": "^15.2.3",
-        "@rollup/plugin-typescript": "^11.1.5",
         "@types/chai": "^4.3.11",
         "@types/mocha": "^10.0.6",
         "@types/node": "^20.10.0",
-        "builtin-modules": "^3.3.0",
         "chai": "^4.3.10",
         "hardhat": "^2.19.1",
         "hardhat-gas-reporter": "^1.0.9",
         "log-timestamp": "^0.3.0",
         "prettier": "^3.1.0",
-        "rollup": "^4.5.2",
         "solidity-coverage": "^0.8.5",
         "ts-node": "^10.9.1",
         "tslib": "^2.6.2",

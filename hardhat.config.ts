@@ -4,8 +4,6 @@ import { task, types } from "hardhat/config";
 import { HardhatNetworkAccountUserConfig, HardhatUserConfig } from "hardhat/types";
 import "@nomicfoundation/hardhat-toolbox";
 
-import { KeyValueStoreClient } from "defender-kvstore-client";
-
 import { default as adrastiaConfig } from "./adrastia.config";
 import {
     AciUpdateTransactionHandler,
@@ -146,7 +144,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
             store = new RedisKeyValueStore(redisClient);
         } else {
-            store = new KeyValueStoreClient({ path: "store.json.tmp" });
+            throw new Error("Redis is the only supported key-value store at the moment.");
         }
 
         // Extract gas price multiplier

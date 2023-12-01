@@ -252,9 +252,3 @@ export class AciUpdateTransactionHandler extends UpdateTransactionHandler {
         return await updateableContract.performUpkeep(updateData, overrides);
     }
 }
-
-export class DefenderUpdateTransactionHandler extends UpdateTransactionHandler {
-    async handleUpdateTx(tx: ContractTransaction, signer: Signer) {
-        // NO-OP: Defender handles the transaction
-    }
-}

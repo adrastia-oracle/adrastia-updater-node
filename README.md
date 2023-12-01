@@ -1,8 +1,8 @@
-# Adrastia Updater Node
+# Adrastia Automatos Node
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
-A lite-node to perform updates for the Adrastia oracle system.
+A node for running Adrastia Automatos workers.
 
 ## Install
 
@@ -36,16 +36,10 @@ cd adrastia-updater-node
 yarn install --lock-file
 ```
 
-4. Compile contracts
+4. Build the project
 
 ```console
-npx hardhat compile
-```
-
-5. Generate typescript bindings
-
-```console
-yarn typechain:generate
+yarn build
 ```
 
 ## Usage
@@ -66,25 +60,6 @@ npx hardhat run-oracle-updater --help
 #### Run as a systemd service
 
 Refer to the [systemd service](services/README.md) documentation for more information.
-
-### OpenZeppelin Defender autotasks
-
-#### Building autotask scripts
-
-```console
-yarn build
-```
-
-#### Running locally
-
-```console
-yarn run run start --help
-```
-
-#### Deploying
-
-1. [Build the autotask scripts](#building-autotask-scripts)
-2. Create (or modify) an [autotask](https://docs.openzeppelin.com/defender/autotasks) using the generated code in the [dist folder](dist/), such as [dist/tasks/oracle-updater.js](dist/tasks/oracle-updater.js) (make sure to connect and fund your relayer)
 
 ## Security
 
