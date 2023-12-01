@@ -20,7 +20,7 @@ import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-
 import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
 
 // Import config
-import { OracleConfig, TokenConfig, ValidationRoute } from "../../adrastia.config";
+import { OracleConfig, TokenConfig, ValidationRoute } from "../config/adrastia-config";
 import { AggregatedOracle } from "../../typechain/adrastia-core/oracles";
 
 import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";

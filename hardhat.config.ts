@@ -4,7 +4,6 @@ import { task, types } from "hardhat/config";
 import { HardhatNetworkAccountUserConfig, HardhatUserConfig } from "hardhat/types";
 import "@nomicfoundation/hardhat-toolbox";
 
-import { default as adrastiaConfig } from "./adrastia.config";
 import {
     AciUpdateTransactionHandler,
     UpdateTransactionHandler,
@@ -17,6 +16,7 @@ import { AxiosProxyConfig } from "axios";
 import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
 import { formatUnits, parseUnits } from "ethers";
+import { AdrastiaConfig } from "./src/config/adrastia-config";
 
 dotenv.config();
 
@@ -64,6 +64,7 @@ task("gasmultiplier", "Prints the gas multiplier for the current network", async
 });
 
 task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
+    .addParam("workerConfig", "The path to the Adrastia worker config file.", "./adrastia.config.ts", types.inputFile, true)
     .addParam("batch", "The index of the account to use as the updater.", 0, types.int, true)
     .addParam("mode", "The mode of the updater. Either 'normal' or 'critical'.", "normal", types.string, true)
     .addParam(
@@ -94,6 +95,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     .addParam("txType", "The numeric transaction type (either 0 or 2).", undefined, types.int, true)
     .addParam("numConfirmations", "The number of confirmations to wait for after submitting a transaction.", 10, types.int, true)
     .setAction(async (taskArgs, hre) => {
+        const adrastiaConfig = require(taskArgs.workerConfig).default as AdrastiaConfig;
+
         const accounts = await hre.ethers.getSigners();
 
         var store: IKeyValueStore;
@@ -217,6 +220,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         }
 
         console.log("Starting the oracle updater with the following parameters:");
+        console.log(`  - workerConfig: ${taskArgs.workerConfig}`);
         console.log(`  - batch: ${taskArgs.batch}`);
         console.log(`  - mode: ${taskArgs.mode}`);
         console.log(`  - every: ${taskArgs.every}`);
