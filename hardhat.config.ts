@@ -584,6 +584,22 @@ const config: HardhatUserConfig = {
                 parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
                 DEFAULT_GASMULTIPLIER,
         },
+        scroll: {
+            url: process.env.SCROLL_URL ?? "",
+            accounts: {
+                mnemonic: process.env.SCROLL_MNEMONIC ?? "",
+                path: process.env.SCROLL_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.SCROLL_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.SCROLL_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+            gasMultiplier:
+                parseFloatOrUndefined(process.env.SCROLL_GASMULTIPLIER) ??
+                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
+                DEFAULT_GASMULTIPLIER,
+        },
     },
 };
 
