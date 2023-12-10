@@ -22,7 +22,6 @@ dotenv.config();
 
 const DEFAULT_PATH = "m/44'/60'/0'/0/0";
 const DEFAULT_PASSPHRASE = "";
-const DEFAULT_GASMULTIPLIER = 1.25;
 const DEFAULT_ACCOUNT_COUNT = 50;
 
 function bigIntOrUndefined(value: string | bigint | number | undefined): bigint | undefined {
@@ -41,26 +40,12 @@ function parseIntOrUndefined(value: string | undefined): number | undefined {
     return parseInt(value);
 }
 
-function parseFloatOrUndefined(value: string | undefined): number | undefined {
-    if (value === undefined || value === "" || value === null) {
-        return undefined;
-    }
-
-    return parseFloat(value);
-}
-
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     const accounts = await hre.ethers.getSigners();
 
     for (var i = 0; i < accounts.length; ++i) {
         console.log(i + ": " + accounts[i].address);
     }
-});
-
-task("gasmultiplier", "Prints the gas multiplier for the current network", async (taskArgs, hre) => {
-    const gasMultiplier = hre.network.config.gasMultiplier;
-
-    console.log("Gas multiplier for network", hre.network.name, "is", gasMultiplier);
 });
 
 task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
@@ -323,10 +308,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.POLYGON_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         ethereum: {
             url: process.env.ETHEREUM_URL ?? "",
@@ -339,10 +320,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.ETHEREUM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         optimism: {
             url: process.env.OPTIMISM_URL ?? "",
@@ -355,10 +332,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.OPTIMISM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         arbitrumOne: {
             url: process.env.ARBITRUMONE_URL ?? "",
@@ -371,10 +344,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.ARBITRUMONE_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         avalanche: {
             url: process.env.AVALANCHE_URL ?? "",
@@ -387,10 +356,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.AVALANCHE_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         fantom: {
             url: process.env.FANTOM_URL ?? "",
@@ -403,10 +368,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.FANTOM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         bsc: {
             url: process.env.BSC_URL ?? "",
@@ -419,10 +380,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.BSC_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         evmos: {
             url: process.env.EVMOS_URL ?? "",
@@ -435,10 +392,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.EVMOS_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         polygonZkEVM: {
             url: process.env.POLYGONZKEVM_URL ?? "",
@@ -451,10 +404,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.POLYGONZKEVM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         moonbeam: {
             url: process.env.MOONBEAM_URL ?? "",
@@ -467,10 +416,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.MOONBEAM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         bobaEthereum: {
             url: process.env.BOBAETHEREUM_URL ?? "",
@@ -483,10 +428,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.BOBAETHEREUM_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         zkSyncEra: {
             url: process.env.ZKSYNCERA_URL ?? "",
@@ -499,10 +440,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.ZKSYNCERA_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         filecoin: {
             url: process.env.FILECOIN_URL ?? "",
@@ -515,10 +452,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.FILECOIN_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         rootstock: {
             url: process.env.ROOTSTOCK_URL ?? "",
@@ -531,10 +464,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.ROOTSTOCK_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         base: {
             url: process.env.BASE_URL ?? "",
@@ -547,10 +476,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.BASE_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         metis: {
             url: process.env.METIS_URL ?? "",
@@ -563,10 +488,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.METIS_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         gnosis: {
             url: process.env.GNOSIS_URL ?? "",
@@ -579,10 +500,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.GNOSIS_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
         scroll: {
             url: process.env.SCROLL_URL ?? "",
@@ -595,10 +512,6 @@ const config: HardhatUserConfig = {
                     parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
                     DEFAULT_ACCOUNT_COUNT,
             },
-            gasMultiplier:
-                parseFloatOrUndefined(process.env.SCROLL_GASMULTIPLIER) ??
-                parseFloatOrUndefined(process.env.DEFAULT_GASMULTIPLIER) ??
-                DEFAULT_GASMULTIPLIER,
         },
     },
 };
