@@ -11,7 +11,6 @@ import {
 } from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
 
-import "log-timestamp";
 import { AxiosProxyConfig } from "axios";
 import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
@@ -80,6 +79,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     .addParam("txType", "The numeric transaction type (either 0 or 2).", undefined, types.int, true)
     .addParam("numConfirmations", "The number of confirmations to wait for after submitting a transaction.", 10, types.int, true)
     .setAction(async (taskArgs, hre) => {
+        if (!taskArgs.service) {
+            // We're not running as a service, so enable timestamps on the console
+            require("log-timestamp");
+        }
+
         const adrastiaConfig = require(taskArgs.workerConfig).default as AdrastiaConfig;
 
         const accounts = await hre.ethers.getSigners();
