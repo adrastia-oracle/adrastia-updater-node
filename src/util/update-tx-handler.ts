@@ -4,11 +4,22 @@
  */
 import Timeout from "await-timeout";
 
-import { ethers, BytesLike, Signer, ContractTransaction, Overrides, ContractTransactionResponse, Addressable, FeeData } from "ethers";
+import {
+    ethers,
+    BytesLike,
+    Signer,
+    ContractTransaction,
+    Overrides,
+    ContractTransactionResponse,
+    Addressable,
+    FeeData,
+} from "ethers";
 import { IUpdateable } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 
 import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
+import { Logger } from "winston";
+import { getLogger } from "../logging/logging";
 
 const ONE_GWEI = BigInt("1000000000");
 
@@ -27,7 +38,7 @@ export interface IUpdateTransactionHandler {
         updateable: string | Addressable,
         updateData: BytesLike,
         signer: Signer,
-        options?: UpdateTransactionOptions
+        options?: UpdateTransactionOptions,
     ): Promise<void>;
 
     handleUpdateTx(tx: ContractTransactionResponse, signer: Signer): Promise<void>;
@@ -36,26 +47,30 @@ export interface IUpdateTransactionHandler {
 export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     updateTxOptions: UpdateTransactionOptions;
 
+    logger: Logger;
+
     constructor(updateTxOptions: UpdateTransactionOptions) {
         if (!updateTxOptions?.transactionTimeout) {
             throw new Error("transactionTimeout must be a number greater than zero");
         }
 
         this.updateTxOptions = updateTxOptions;
+
+        this.logger = getLogger();
     }
 
     async dropTransaction(tx: ContractTransaction, signer: Signer) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
-        var gasPriceToUse: bigint = ((tx.gasPrice * 12n) / 10n) + ONE_GWEI;
+        var gasPriceToUse: bigint = (tx.gasPrice * 12n) / 10n + ONE_GWEI;
         var maxFeePerGasToUse: bigint | null = tx.maxFeePerGas;
         var maxPriorityFeePerGasToUse: bigint | null = tx.maxPriorityFeePerGas;
         if (maxFeePerGasToUse !== null && maxFeePerGasToUse !== undefined) {
-            maxFeePerGasToUse = ((maxFeePerGasToUse * 12n) / 10n) + ONE_GWEI;
+            maxFeePerGasToUse = (maxFeePerGasToUse * 12n) / 10n + ONE_GWEI;
         }
         if (maxPriorityFeePerGasToUse !== null && maxPriorityFeePerGasToUse !== undefined) {
-            maxPriorityFeePerGasToUse = ((maxPriorityFeePerGasToUse * 12n) / 10n) + ONE_GWEI;
+            maxPriorityFeePerGasToUse = (maxPriorityFeePerGasToUse * 12n) / 10n + ONE_GWEI;
         }
 
         // Check if the network is consuming more gas than when the transaction was submitted
@@ -79,11 +94,11 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGasToUse = gasPriceData.maxPriorityFeePerGas;
         }
 
-        console.log(
+        this.logger.info(
             "Dropping transaction with nonce " +
                 tx.nonce +
                 " and gas price " +
-                ethers.formatUnits(gasPriceToUse, "gwei")
+                ethers.formatUnits(gasPriceToUse, "gwei"),
         );
 
         const txType = this.updateTxOptions.txType ?? 0;
@@ -103,7 +118,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
         } catch (e) {
             if (e.message === "Timeout") {
-                console.log("Drop transaction timed out. Trying again...");
+                this.logger.info("Drop transaction timed out. Trying again...");
 
                 await this.dropTransaction(replacementTx, signer);
             }
@@ -117,33 +132,33 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         }
 
         try {
-            console.log(
+            this.logger.info(
                 "Waiting up to " +
                     this.updateTxOptions.transactionTimeout +
                     "ms for transaction to be mined: " +
-                    tx.hash
+                    tx.hash,
             );
 
             await Timeout.wrap(tx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
 
-            console.log("Transaction mined: " + tx.hash);
+            this.logger.info("Transaction mined: " + tx.hash);
 
             if (confirmationsRequired > 1) {
-                console.log("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
+                this.logger.info("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
 
                 const receipt = await tx.wait(confirmationsRequired);
 
                 const numConfirmations = await receipt.confirmations();
 
-                console.log("Transaction confirmed with " + numConfirmations + " confirmations: " + tx.hash);
+                this.logger.info("Transaction confirmed with " + numConfirmations + " confirmations: " + tx.hash);
             }
         } catch (e) {
             if (e.message === "Timeout") {
-                console.log("Transaction timed out: " + tx.hash + ". Dropping...");
+                this.logger.info("Transaction timed out: " + tx.hash + ". Dropping...");
 
                 await this.dropTransaction(tx, signer);
             } else {
-                console.error("Error waiting for transaction " + tx.hash + ":", e);
+                this.logger.error("Error waiting for transaction " + tx.hash + ":", e);
             }
         }
     }
@@ -162,50 +177,61 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         var maxFeePerGas: bigint | null = feeData.maxFeePerGas;
         var maxPriorityFeePerGas: bigint | null = feeData.maxPriorityFeePerGas;
 
-        console.log("Gas price from signer: " + ethers.formatUnits(gasPrice, "gwei"));
+        this.logger.info("Gas price from signer: " + ethers.formatUnits(gasPrice, "gwei"));
 
         if (options.gasPriceMultiplierDividend && options.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the specified multiplier
             gasPrice = (gasPrice * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
 
-            if (maxFeePerGas !== null && maxFeePerGas !== undefined
-                && maxPriorityFeePerGas !== null && maxPriorityFeePerGas !== undefined)
-            {
+            if (
+                maxFeePerGas !== null &&
+                maxFeePerGas !== undefined &&
+                maxPriorityFeePerGas !== null &&
+                maxPriorityFeePerGas !== undefined
+            ) {
                 maxFeePerGas = (maxFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
-                maxPriorityFeePerGas = (maxPriorityFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
+                maxPriorityFeePerGas =
+                    (maxPriorityFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
             }
 
-            console.log("Gas price adjusted by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info("Gas price adjusted by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
         } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the default multiplier
-            gasPrice = (gasPrice
-                * this.updateTxOptions.gasPriceMultiplierDividend) /
+            gasPrice =
+                (gasPrice * this.updateTxOptions.gasPriceMultiplierDividend) /
                 this.updateTxOptions.gasPriceMultiplierDivisor;
 
-            if (maxFeePerGas !== null && maxFeePerGas !== undefined
-                && maxPriorityFeePerGas !== null && maxPriorityFeePerGas !== undefined)
-            {
-                maxFeePerGas = (maxFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) / this.updateTxOptions.gasPriceMultiplierDivisor;
-                maxPriorityFeePerGas = (maxPriorityFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) / this.updateTxOptions.gasPriceMultiplierDivisor;
+            if (
+                maxFeePerGas !== null &&
+                maxFeePerGas !== undefined &&
+                maxPriorityFeePerGas !== null &&
+                maxPriorityFeePerGas !== undefined
+            ) {
+                maxFeePerGas =
+                    (maxFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) /
+                    this.updateTxOptions.gasPriceMultiplierDivisor;
+                maxPriorityFeePerGas =
+                    (maxPriorityFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) /
+                    this.updateTxOptions.gasPriceMultiplierDivisor;
             }
 
-            console.log("Gas price adjusted by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info("Gas price adjusted by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
 
         // Cap the gas price if specified
         if (options.maxGasPrice && gasPrice > options.maxGasPrice) {
             gasPrice = options.maxGasPrice;
 
-            console.log("Gas price capped by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info("Gas price capped by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
         if (this.updateTxOptions.maxGasPrice && gasPrice > this.updateTxOptions.maxGasPrice) {
             gasPrice = this.updateTxOptions.maxGasPrice;
 
-            console.log("Gas price capped by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info("Gas price capped by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
         }
         if (gasPrice < gasPriceFromSigner) {
             throw new Error(
-                "Calculated gas price is less than the gas price from the signer. The transaction will fail. Aborting..."
+                "Calculated gas price is less than the gas price from the signer. The transaction will fail. Aborting...",
             );
         }
 
@@ -216,10 +242,17 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         };
     }
 
-    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: UpdateTransactionOptions) {
+    async sendUpdateTx(
+        updateable: string | Addressable,
+        updateData: BytesLike,
+        signer: Signer,
+        options?: UpdateTransactionOptions,
+    ) {
         const gasPriceData = await this.getGasPriceData(signer, options);
 
-        console.log("Sending update transaction with gas price: " + ethers.formatUnits(gasPriceData.gasPrice, "gwei"));
+        this.logger.info(
+            "Sending update transaction with gas price: " + ethers.formatUnits(gasPriceData.gasPrice, "gwei"),
+        );
 
         const updateableAddress = typeof updateable === "string" ? updateable : await updateable.getAddress();
 
@@ -233,7 +266,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGas: txType === 2 ? gasPriceData.maxPriorityFeePerGas : undefined,
         });
 
-        console.log("Sent update transaction (tx type " + txType + "): " + tx.hash);
+        this.logger.info("Sent update transaction (tx type " + txType + "): " + tx.hash);
 
         await this.handleUpdateTx(tx, signer);
     }
@@ -246,7 +279,7 @@ export class AciUpdateTransactionHandler extends UpdateTransactionHandler {
         const updateableContract = new ethers.Contract(
             updateable,
             this.automationCompatibleInterface.abi,
-            signer
+            signer,
         ) as unknown as AutomationCompatibleInterface;
 
         return await updateableContract.performUpkeep(updateData, overrides);

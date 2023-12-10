@@ -16,6 +16,7 @@ import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
 import { formatUnits, parseUnits } from "ethers";
 import { AdrastiaConfig } from "./src/config/adrastia-config";
+import { getLogger, initializeLogging } from "./src/logging/logging";
 
 dotenv.config();
 
@@ -48,7 +49,13 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 });
 
 task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
-    .addParam("workerConfig", "The path to the Adrastia worker config file.", "./adrastia.config.ts", types.inputFile, true)
+    .addParam(
+        "workerConfig",
+        "The path to the Adrastia worker config file.",
+        "./adrastia.config.ts",
+        types.inputFile,
+        true,
+    )
     .addParam("batch", "The index of the account to use as the updater.", 0, types.int, true)
     .addParam("mode", "The mode of the updater. Either 'normal' or 'critical'.", "normal", types.string, true)
     .addParam(
@@ -56,14 +63,14 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         "The interval in seconds to run the updater. The updater is only run once by default.",
         undefined,
         types.int,
-        true
+        true,
     )
     .addParam(
         "delay",
         "The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent.",
         0,
         types.int,
-        true
+        true,
     )
     .addParam("type", "The type of the updater. Either 'dex', 'aci-address', or 'gas'.", "dex", types.string, true)
     .addFlag("dryRun", "Whether to run the updater in dry-run mode.")
@@ -73,16 +80,21 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         "The gas price multiplier to use (with up to 4 decimal places).",
         undefined,
         types.float,
-        true
+        true,
     )
     .addParam("maxGasPrice", "The maximum gas price to use (in gwei).", undefined, types.float, true)
     .addParam("txType", "The numeric transaction type (either 0 or 2).", undefined, types.int, true)
-    .addParam("numConfirmations", "The number of confirmations to wait for after submitting a transaction.", 10, types.int, true)
+    .addParam(
+        "numConfirmations",
+        "The number of confirmations to wait for after submitting a transaction.",
+        10,
+        types.int,
+        true,
+    )
     .setAction(async (taskArgs, hre) => {
-        if (!taskArgs.service) {
-            // We're not running as a service, so enable timestamps on the console
-            require("log-timestamp");
-        }
+        initializeLogging(taskArgs.service, "adrastia-oracle-updater", "info");
+
+        const logger = getLogger();
 
         const adrastiaConfig = require(taskArgs.workerConfig).default as AdrastiaConfig;
 
@@ -96,7 +108,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             process.env.REDIS_ENABLED?.toLowerCase() === "yes";
 
         if (redisEnabled) {
-            console.log("Creating Redis client...");
+            logger.info("Creating Redis client...");
 
             const redisUsername = process.env.REDIS_USERNAME || "";
             const redisPasswordBlob = process.env.REDIS_PASSWORD ? ":" + process.env.REDIS_PASSWORD : "";
@@ -107,32 +119,41 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
             const redis = require("redis");
             const redisClient = redis.createClient({
-                url: 'redis://' + redisUsername + redisPasswordBlob + redisAtBlob + redisHost + ':' + redisPort + '/' + redisDatabase,
+                url:
+                    "redis://" +
+                    redisUsername +
+                    redisPasswordBlob +
+                    redisAtBlob +
+                    redisHost +
+                    ":" +
+                    redisPort +
+                    "/" +
+                    redisDatabase,
             });
 
             redisClient.on("error", function (error) {
-                console.error("Redis error:", error);
+                logger.error("Redis error:", error);
             });
 
             redisClient.on("connect", function () {
-                console.log("Redis client is connecting...");
+                logger.info("Redis client is connecting...");
             });
 
             redisClient.on("ready", function () {
-                console.log("Redis client is ready.");
+                logger.info("Redis client is ready.");
             });
 
             redisClient.on("end", function () {
-                console.log("Redis client has disconnected.");
+                logger.info("Redis client has disconnected.");
             });
 
             redisClient.on("reconnecting", function () {
-                console.log("Redis client is reconnecting...");
+                logger.info("Redis client is reconnecting...");
             });
 
             await redisClient.connect();
 
-            console.log("Redis client created.");
+            logger.info("Redis client created.");
 
             store = new RedisKeyValueStore(redisClient);
         } else {
@@ -208,29 +229,29 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             notify.ready();
         }
 
-        console.log("Starting the oracle updater with the following parameters:");
-        console.log(`  - workerConfig: ${taskArgs.workerConfig}`);
-        console.log(`  - batch: ${taskArgs.batch}`);
-        console.log(`  - mode: ${taskArgs.mode}`);
-        console.log(`  - every: ${taskArgs.every}`);
-        console.log(`  - dryRun: ${taskArgs.dryRun}`);
-        console.log(`  - transactionTimeout: ${transactionTimeout}`);
-        console.log(`  - numConfirmations: ${numConfirmations}`);
-        console.log(`  - txType: ${txType}`);
-        console.log(`  - delay: ${taskArgs.delay}`);
-        console.log(`  - service: ${taskArgs.service}`);
-        console.log(`  - type: ${taskArgs.type}`);
+        logger.info("Starting the oracle updater with the following parameters:");
+        logger.info(`  - workerConfig: ${taskArgs.workerConfig}`);
+        logger.info(`  - batch: ${taskArgs.batch}`);
+        logger.info(`  - mode: ${taskArgs.mode}`);
+        logger.info(`  - every: ${taskArgs.every}`);
+        logger.info(`  - dryRun: ${taskArgs.dryRun}`);
+        logger.info(`  - transactionTimeout: ${transactionTimeout}`);
+        logger.info(`  - numConfirmations: ${numConfirmations}`);
+        logger.info(`  - txType: ${txType}`);
+        logger.info(`  - delay: ${taskArgs.delay}`);
+        logger.info(`  - service: ${taskArgs.service}`);
+        logger.info(`  - type: ${taskArgs.type}`);
 
         if (taskArgs.gasPriceMultiplier !== undefined) {
-            console.log(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
+            logger.info(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
         }
 
         if (maxGasPrice !== undefined) {
-            console.log(`  - maxGasPrice: ${formatUnits(maxGasPrice, "gwei")} gwei`);
+            logger.info(`  - maxGasPrice: ${formatUnits(maxGasPrice, "gwei")} gwei`);
         }
 
         if (proxyConfig !== undefined) {
-            console.log(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
+            logger.info(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
         }
 
         const repeatInterval = taskArgs.every ?? 0;
@@ -245,10 +266,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             }
 
             try {
-                console.log(
+                logger.info(
                     `Running batch ${taskArgs.batch} using account '${
                         accounts[taskArgs.batch].address
-                    }' for target chain '${hre.network.name}'`
+                    }' for target chain '${hre.network.name}'`,
                 );
 
                 await run(
@@ -264,14 +285,14 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     taskArgs.delay,
                     adrastiaConfig.httpCacheSeconds,
                     taskArgs.type,
-                    proxyConfig
+                    proxyConfig,
                 );
             } catch (e) {
-                console.error(e);
+                logger.error(e);
             }
 
             if (repeatInterval > 0) {
-                console.log("Sleeping for", repeatInterval, "seconds");
+                logger.info("Sleeping for %i seconds", repeatInterval);
 
                 await new Promise((resolve) => setTimeout(resolve, repeatInterval * 1000));
             }
@@ -290,16 +311,18 @@ const config: HardhatUserConfig = {
                 auto: true,
                 interval: 2000,
             },
-            accounts: process.env.PRIVATE_KEY_UPDATER ? [
-                {
-                    privateKey: process.env.PRIVATE_KEY_DEPLOYER,
-                    balance: "50000000000000000000", // 50 ETH
-                } as HardhatNetworkAccountUserConfig,
-                {
-                    privateKey: process.env.PRIVATE_KEY_UPDATER,
-                    balance: "50000000000000000000", // 50 ETH
-                } as HardhatNetworkAccountUserConfig
-            ] : undefined,
+            accounts: process.env.PRIVATE_KEY_UPDATER
+                ? [
+                      {
+                          privateKey: process.env.PRIVATE_KEY_DEPLOYER,
+                          balance: "50000000000000000000", // 50 ETH
+                      } as HardhatNetworkAccountUserConfig,
+                      {
+                          privateKey: process.env.PRIVATE_KEY_UPDATER,
+                          balance: "50000000000000000000", // 50 ETH
+                      } as HardhatNetworkAccountUserConfig,
+                  ]
+                : undefined,
         },
         polygon: {
             url: process.env.POLYGON_URL ?? "",

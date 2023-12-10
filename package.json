@@ -29,7 +29,9 @@
         "dotenv": "^16.3.1",
         "ethers": "^6.8.1",
         "redis": "^4.6.11",
-        "sd-notify": "^2.8.0"
+        "sd-notify": "^2.8.0",
+        "winston": "^3.11.0",
+        "winston-journald3": "^0.1.2"
     },
     "devDependencies": {
         "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
@@ -39,7 +41,6 @@
         "chai": "^4.3.10",
         "hardhat": "^2.19.1",
         "hardhat-gas-reporter": "^1.0.9",
-        "log-timestamp": "^0.3.0",
         "prettier": "^3.1.0",
         "solidity-coverage": "^0.8.5",
         "ts-node": "^10.9.1",
