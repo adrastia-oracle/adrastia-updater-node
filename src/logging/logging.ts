@@ -5,7 +5,7 @@ var logger = undefined;
 
 export function initializeLogging(isService: boolean, identifier: string, level: string = INFO) {
     if (isService) {
-        const journald3 = require("winston-journald3");
+        const journald3 = require("winston-journald3").default;
         const journald = new journald3({ identifier: identifier });
         logger = createLogger({
             level: level,
