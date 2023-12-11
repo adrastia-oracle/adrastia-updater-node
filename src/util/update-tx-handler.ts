@@ -20,6 +20,7 @@ import { AutomationCompatibleInterface } from "../../typechain/local";
 import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
+import { NOTICE } from "../logging/log-levels";
 
 const ONE_GWEI = BigInt("1000000000");
 
@@ -94,7 +95,8 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGasToUse = gasPriceData.maxPriorityFeePerGas;
         }
 
-        this.logger.info(
+        this.logger.log(
+            NOTICE,
             "Dropping transaction with nonce " +
                 tx.nonce +
                 " and gas price " +
@@ -118,7 +120,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
         } catch (e) {
             if (e.message === "Timeout") {
-                this.logger.info("Drop transaction timed out. Trying again...");
+                this.logger.log(NOTICE, "Drop transaction timed out. Trying again...");
 
                 await this.dropTransaction(replacementTx, signer);
             }
@@ -154,7 +156,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             }
         } catch (e) {
             if (e.message === "Timeout") {
-                this.logger.info("Transaction timed out: " + tx.hash + ". Dropping...");
+                this.logger.log(NOTICE, "Transaction timed out: " + tx.hash + ". Dropping...");
 
                 await this.dropTransaction(tx, signer);
             } else {
@@ -250,7 +252,8 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     ) {
         const gasPriceData = await this.getGasPriceData(signer, options);
 
-        this.logger.info(
+        this.logger.log(
+            NOTICE,
             "Sending update transaction with gas price: " + ethers.formatUnits(gasPriceData.gasPrice, "gwei"),
         );
 
@@ -266,7 +269,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGas: txType === 2 ? gasPriceData.maxPriorityFeePerGas : undefined,
         });
 
-        this.logger.info("Sent update transaction (tx type " + txType + "): " + tx.hash);
+        this.logger.log(NOTICE, "Sent update transaction (tx type " + txType + "): " + tx.hash);
 
         await this.handleUpdateTx(tx, signer);
     }

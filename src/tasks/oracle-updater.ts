@@ -32,6 +32,7 @@ import { AutomationCompatibleInterface } from "../../typechain/local";
 import { IUpdateTransactionHandler, UpdateTransactionHandler } from "../util/update-tx-handler";
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
+import { NOTICE, WARNING } from "../logging/log-levels";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -511,7 +512,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            this.logger.info("Updating liquidity accumulator:", liquidityAccumulator.target);
+            this.logger.log(NOTICE, "Updating liquidity accumulator:", liquidityAccumulator.target);
 
             const updateData = await this.generateLaUpdateData(liquidityAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
@@ -1211,7 +1212,7 @@ export class AdrastiaUpdater {
         var apiPrice = 0n;
         var usePrice = accumulatorPrice;
 
-        this.logger.info("Validating price for accumulator: " + accumulator.target);
+        this.logger.log(NOTICE, "Validating price for accumulator: " + accumulator.target);
 
         const quoteTokenDecimals = await this.getAccumulatorQuoteTokenDecimals(accumulator);
 
@@ -1223,8 +1224,8 @@ export class AdrastiaUpdater {
                 quoteTokenDecimals,
             );
 
-            this.logger.info("API price = " + ethers.formatUnits(apiPrice, quoteTokenDecimals));
-            this.logger.info("Accumulator price = " + ethers.formatUnits(accumulatorPrice, quoteTokenDecimals));
+            this.logger.log(NOTICE, "API price = " + ethers.formatUnits(apiPrice, quoteTokenDecimals));
+            this.logger.log(NOTICE, "Accumulator price = " + ethers.formatUnits(accumulatorPrice, quoteTokenDecimals));
 
             const diff = this.calculateChange(accumulatorPrice, apiPrice, BigInt("10000")); // in bps
 
@@ -1261,9 +1262,10 @@ export class AdrastiaUpdater {
         }*/
 
         if (!validated) {
-            this.logger.info("Price validation failed (exceeds " + token.validation.allowedChangeBps + " bps)");
+            this.logger.log(WARNING, "Price validation failed (exceeds " + token.validation.allowedChangeBps + " bps)");
         } else {
-            this.logger.info(
+            this.logger.log(
+                NOTICE,
                 "Validation succeeded. Using price of " +
                     ethers.formatUnits(usePrice, quoteTokenDecimals) +
                     " for on-chain validation.",
@@ -1316,7 +1318,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            this.logger.info("Updating price accumulator: " + priceAccumulator.target);
+            this.logger.log(NOTICE, "Updating price accumulator: " + priceAccumulator.target);
 
             const updateData = await this.generatePaUpdateData(priceAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
@@ -1389,7 +1391,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            this.logger.info("Updating oracle: " + oracle.target);
+            this.logger.log(NOTICE, "Updating oracle: " + oracle.target);
 
             if (!this.dryRun) {
                 await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, {
@@ -1524,7 +1526,7 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
                 return;
             }
 
-            this.logger.info("Updating ACI: " + automatable.target);
+            this.logger.log(NOTICE, "Updating ACI: " + automatable.target);
 
             if (!this.dryRun) {
                 await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, {
