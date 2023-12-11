@@ -1,4 +1,4 @@
-import { createLogger, format, transports } from "winston";
+import { config as winstonConfig, createLogger, format, transports } from "winston";
 import { INFO } from "./log-levels";
 import { default as WinstonJournald } from "winston-journald3";
 
@@ -43,6 +43,7 @@ export function initializeLogging(isService: boolean, identifier: string, level:
     if (isService) {
         const journald = new CustomJournaldTransport({ identifier: identifier });
         logger = createLogger({
+            levels: winstonConfig.syslog.levels,
             level: level,
             format: format.combine(format.splat(), format.simple()),
             defaultMeta: { service: identifier },
@@ -50,6 +51,7 @@ export function initializeLogging(isService: boolean, identifier: string, level:
         });
     } else {
         logger = createLogger({
+            levels: winstonConfig.syslog.levels,
             level: level,
             format: format.combine(
                 format.errors({ stack: true }),
