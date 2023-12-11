@@ -1,16 +1,7 @@
 import { AdrastiaConfig } from "./src/config/adrastia-config";
 
 const config: AdrastiaConfig = {
-    // Change target to generate a different script
-    target: {
-        chain: "polygon",
-        type: "normal",
-        batch: 0,
-        delay: 0, // The amount of time in seconds that has to pass (with an update being needed) before an update transaction is sent
-    },
     httpCacheSeconds: 30, // The amount of time in seconds that the HTTP cache (used when fetching off-chain prices) is valid for
-    dryRun: true,
-    type: "dex",
     chains: {
         polygon: {
             txConfig: {

@@ -43,14 +43,6 @@ export type ChainConfig = {
 };
 
 export type AdrastiaConfig = {
-    target: {
-        chain: string;
-        type: UpdaterMode;
-        batch: number;
-        delay: number;
-    };
-    dryRun: boolean;
     httpCacheSeconds: number;
-    type: "dex" | "gas" | "aci-address";
     chains: Record<string, ChainConfig>;
 };
