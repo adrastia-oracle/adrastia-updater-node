@@ -10,11 +10,6 @@ const config: AdrastiaConfig = {
                     validFor: 120,
                     gasLimit: 1000000,
                 },
-                critical: {
-                    speed: "fastest",
-                    validFor: 60,
-                    gasLimit: 1000000,
-                },
             },
             oracles: [
                 {

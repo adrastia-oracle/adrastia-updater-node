@@ -29,7 +29,7 @@ export type OracleConfig = {
     tokens: TokenConfig[];
 };
 
-export type UpdaterMode = "normal" | "critical";
+export type UpdaterMode = "normal";
 
 export type TxConfig = {
     speed: "normal" | "fast" | "fastest";

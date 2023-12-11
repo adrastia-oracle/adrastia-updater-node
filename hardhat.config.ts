@@ -57,7 +57,6 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         true,
     )
     .addParam("batch", "The index of the account to use as the updater.", 0, types.int, true)
-    .addParam("mode", "The mode of the updater. Either 'normal' or 'critical'.", "normal", types.string, true)
     .addParam(
         "every",
         "The interval in seconds to run the updater. The updater is only run once by default.",
@@ -173,7 +172,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             gasPriceMultiplierDivisor = 10000;
         }
 
-        const txConfig = adrastiaConfig.chains[hre.network.name].txConfig[taskArgs.mode];
+        const txConfig = adrastiaConfig.chains[hre.network.name].txConfig["normal"];
 
         const transactionTimeout = txConfig.validFor * 1000;
 
@@ -232,7 +231,6 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         logger.info("Starting the oracle updater with the following parameters:");
         logger.info(`  - workerConfig: ${taskArgs.workerConfig}`);
         logger.info(`  - batch: ${taskArgs.batch}`);
-        logger.info(`  - mode: ${taskArgs.mode}`);
         logger.info(`  - every: ${taskArgs.every}`);
         logger.info(`  - dryRun: ${taskArgs.dryRun}`);
         logger.info(`  - transactionTimeout: ${transactionTimeout}`);
@@ -279,7 +277,6 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     accounts[taskArgs.batch],
                     store,
                     txConfig.gasLimit,
-                    taskArgs.mode === "critical",
                     taskArgs.dryRun,
                     updateTxHandler,
                     taskArgs.delay,

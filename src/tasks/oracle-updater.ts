@@ -144,7 +144,6 @@ export class AdrastiaUpdater {
     updateDelay: number; // in seconds
 
     useGasLimit = 1000000;
-    onlyCritical = false;
     dryRun = false;
 
     axiosInstance: AxiosInstance;
@@ -158,7 +157,6 @@ export class AdrastiaUpdater {
         signer: Signer,
         store: IKeyValueStore,
         useGasLimit: number,
-        onlyCritical: boolean,
         dryRun: boolean,
         updateTxHandler: IUpdateTransactionHandler,
         updateDelay: number,
@@ -174,7 +172,6 @@ export class AdrastiaUpdater {
         this.updateDelay = updateDelay;
 
         this.useGasLimit = useGasLimit;
-        this.onlyCritical = onlyCritical;
         this.dryRun = dryRun;
 
         this.proxyConfig = proxyConfig;
@@ -391,34 +388,12 @@ export class AdrastiaUpdater {
         return updateThreshold;
     }
 
-    async accumulatorNeedsCriticalUpdate(accumulator: IAccumulator, token: string): Promise<boolean> {
-        this.logger.info("Checking if accumulator needs a critical update: " + accumulator.target);
-
-        const updateThreshold = await this.getAccumulatorUpdateThreshold(accumulator);
-        const criticalUpdateThreshold = updateThreshold + updateThreshold / 2n; // updateThreshold * 1.5
-        this.logger.info("Critical update threshold: " + criticalUpdateThreshold);
-
-        const criticalUpdateNeeded = await accumulator.changeThresholdSurpassed(token, criticalUpdateThreshold);
-        if (criticalUpdateNeeded) {
-            this.logger.info("Critical update is needed");
-        }
-
-        return criticalUpdateNeeded;
-    }
-
     async updateIsDelayed(contract: BaseContract, token: string): Promise<boolean> {
         if (this.updateDelay <= 0) return false;
 
         this.logger.info("Checking if accumulator update is delayed: " + contract.target + " (token: " + token + ")");
 
-        const storeKey =
-            this.chain +
-            "." +
-            contract.target +
-            "." +
-            token +
-            ".updateNeededSince" +
-            (this.onlyCritical ? ".critical" : "");
+        const storeKey = this.chain + "." + contract.target + "." + token + ".updateNeededSince";
         const timeFromStore = await this.store.get(storeKey);
 
         const currentTime = Math.floor(Date.now() / 1000); // unix timestamp
@@ -459,14 +434,7 @@ export class AdrastiaUpdater {
 
         this.logger.info("Resetting update delay for contract: " + contract.target + " (token: " + token + ")");
 
-        const storeKey =
-            this.chain +
-            "." +
-            contract.target +
-            "." +
-            token +
-            ".updateNeededSince" +
-            (this.onlyCritical ? ".critical" : "");
+        const storeKey = this.chain + "." + contract.target + "." + token + ".updateNeededSince";
 
         await this.store.del(storeKey);
     }
@@ -500,13 +468,6 @@ export class AdrastiaUpdater {
         const checkUpdateData = await this.generateLaCheckUpdateData(liquidityAccumulator, token);
 
         if (this.dryRun || (await liquidityAccumulator.canUpdate(checkUpdateData))) {
-            if (this.onlyCritical) {
-                // Critical: changePercent >= updateThreshold * 1.5
-                if (!(await this.accumulatorNeedsCriticalUpdate(liquidityAccumulator, token.address))) {
-                    return;
-                }
-            }
-
             if (await this.updateIsDelayed(liquidityAccumulator, token.address)) {
                 // Update is delayed. Do not update.
                 return;
@@ -1284,13 +1245,6 @@ export class AdrastiaUpdater {
         const checkUpdateData = await this.generatePaCheckUpdateData(priceAccumulator, token);
 
         if (this.dryRun || (await priceAccumulator.canUpdate(checkUpdateData))) {
-            if (this.onlyCritical) {
-                // Critical: changePercent >= updateThreshold * 1.5
-                if (!(await this.accumulatorNeedsCriticalUpdate(priceAccumulator, token.address))) {
-                    return;
-                }
-            }
-
             if (await this.updateIsDelayed(priceAccumulator, token.address)) {
                 // Update is delayed. Do not update.
                 return;
@@ -1357,13 +1311,6 @@ export class AdrastiaUpdater {
         const updateData = ethers.zeroPadValue(token, 32);
 
         if (this.dryRun || (await oracle.canUpdate(updateData))) {
-            if (this.onlyCritical) {
-                // Critical: block.timestamp >= observation.timestamp + (period * 1.5)
-                if (!(await this.oracleNeedsCriticalUpdate(oracle, token))) {
-                    return;
-                }
-            }
-
             if (await this.updateIsDelayed(oracle, token)) {
                 // Update is delayed. Do not update.
                 return;
@@ -1540,7 +1487,6 @@ export async function run(
     signer: Signer,
     store: IKeyValueStore,
     useGasLimit: number,
-    onlyCritical: boolean,
     dryRun: boolean,
     updateTxHandler: UpdateTransactionHandler,
     updateDelay: number,
@@ -1556,7 +1502,6 @@ export async function run(
             signer,
             store,
             useGasLimit,
-            onlyCritical,
             dryRun,
             updateTxHandler,
             updateDelay,
@@ -1569,7 +1514,6 @@ export async function run(
             signer,
             store,
             useGasLimit,
-            onlyCritical,
             dryRun,
             updateTxHandler,
             updateDelay,
@@ -1582,7 +1526,6 @@ export async function run(
             signer,
             store,
             useGasLimit,
-            onlyCritical,
             dryRun,
             updateTxHandler,
             updateDelay,
