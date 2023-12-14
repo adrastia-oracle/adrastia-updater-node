@@ -1142,7 +1142,7 @@ export class AdrastiaUpdater {
                     throw new Error("Unknown source type: " + source.type);
                 }
             } catch (e) {
-                this.logger.error("Error fetching price from source: " + e.message);
+                this.logger.error("Error fetching price from source '" + source.type + "': " + e.message);
             }
 
             if (hasPrice) {
