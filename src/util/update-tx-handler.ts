@@ -132,7 +132,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     }
 
     async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer) {
-        const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 10;
+        const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 5;
         if (confirmationsRequired === 0) {
             return;
         }
