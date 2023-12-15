@@ -86,7 +86,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
     .addParam(
         "numConfirmations",
         "The number of confirmations to wait for after submitting a transaction.",
-        10,
+        5,
         types.int,
         true,
     )
