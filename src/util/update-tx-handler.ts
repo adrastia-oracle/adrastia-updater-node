@@ -122,6 +122,10 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             if (e.message === "Timeout") {
                 this.logger.log(NOTICE, "Drop transaction timed out. Trying again...");
 
+                // The wait() call is still listening for the transaction to be mined. Remove all listeners to prevent
+                // spamming the RPC node with requests.
+                await signer.provider.removeAllListeners();
+
                 await this.dropTransaction(replacementTx, signer);
             }
         }
@@ -157,6 +161,10 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         } catch (e) {
             if (e.message === "Timeout") {
                 this.logger.log(NOTICE, "Transaction timed out: " + tx.hash + ". Dropping...");
+
+                // The wait() call is still listening for the transaction to be mined. Remove all listeners to prevent
+                // spamming the RPC node with requests.
+                await signer.provider.removeAllListeners();
 
                 await this.dropTransaction(tx, signer);
             } else {
