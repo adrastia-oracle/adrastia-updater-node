@@ -473,7 +473,7 @@ export class AdrastiaUpdater {
                 return;
             }
 
-            this.logger.log(NOTICE, "Updating liquidity accumulator:", liquidityAccumulator.target);
+            this.logger.log(NOTICE, "Updating liquidity accumulator: " + liquidityAccumulator.target);
 
             const updateData = await this.generateLaUpdateData(liquidityAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
