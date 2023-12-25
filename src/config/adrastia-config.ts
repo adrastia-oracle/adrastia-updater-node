@@ -10,15 +10,17 @@ export type ValidationRoute = {
     source?: string;
 };
 
+export type ValidationConfig = {
+    enabled: boolean;
+    minimumWeight: number;
+    sources: ValidationSource[];
+    allowedChangeBps: number;
+};
+
 export type TokenConfig = {
     enabled?: boolean;
     address: string;
-    validation: {
-        enabled: boolean;
-        minimumWeight: number;
-        sources: ValidationSource[];
-        allowedChangeBps: number;
-    };
+    validation?: ValidationConfig;
     batch: number;
     extra?: any;
 };

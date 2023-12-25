@@ -1229,7 +1229,7 @@ export class AdrastiaUpdater {
         // Get the latest block timestamp
         const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
 
-        if (token.validation.enabled) {
+        if (token.validation?.enabled) {
             const validation = await this.validatePrice(priceAccumulator, price, token);
             if (!validation.validated) {
                 return undefined;
