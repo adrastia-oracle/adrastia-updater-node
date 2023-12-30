@@ -4,18 +4,14 @@ import { task, types } from "hardhat/config";
 import { HardhatNetworkAccountUserConfig, HardhatUserConfig } from "hardhat/types";
 import "@nomicfoundation/hardhat-toolbox";
 
-import {
-    AciUpdateTransactionHandler,
-    UpdateTransactionHandler,
-    UpdateTransactionOptions,
-} from "./src/util/update-tx-handler";
+import { AciUpdateTransactionHandler, UpdateTransactionHandler } from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
 
 import { AxiosProxyConfig } from "axios";
 import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
 import { formatUnits, parseUnits } from "ethers";
-import { AdrastiaConfig } from "./src/config/adrastia-config";
+import { AdrastiaConfig, TxConfig } from "./src/config/adrastia-config";
 import { getLogger, initializeLogging } from "./src/logging/logging";
 
 dotenv.config();
@@ -172,11 +168,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             gasPriceMultiplierDivisor = 10000;
         }
 
-        const txConfig = adrastiaConfig.chains[hre.network.name].txConfig["normal"];
-
-        const transactionTimeout = txConfig.validFor * 1000;
-
-        const txType = taskArgs.txType ?? 0;
+        const txType = taskArgs.txType;
         const numConfirmations: number = taskArgs.numConfirmations;
 
         var maxGasPrice = undefined;
@@ -188,14 +180,13 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             maxGasPrice = parseUnits(taskArgs.maxGasPrice.toString(), "gwei");
         }
 
-        const updateTxOptions: UpdateTransactionOptions = {
-            gasLimit: bigIntOrUndefined(txConfig.gasLimit),
-            transactionTimeout: transactionTimeout,
+        const updateTxOptions: TxConfig = {
             gasPriceMultiplierDividend: bigIntOrUndefined(gasPriceMultiplierDividend),
             gasPriceMultiplierDivisor: bigIntOrUndefined(gasPriceMultiplierDivisor),
             maxGasPrice: bigIntOrUndefined(maxGasPrice),
-            txType: txType,
-            waitForConfirmations: numConfirmations,
+            txType: taskArgs.txType,
+            waitForConfirmations: taskArgs.numConfirmations,
+            transactionTimeout: 60 * 1000,
         };
 
         var updateTxHandler: UpdateTransactionHandler;
@@ -233,7 +224,6 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         logger.info(`  - batch: ${taskArgs.batch}`);
         logger.info(`  - every: ${taskArgs.every}`);
         logger.info(`  - dryRun: ${taskArgs.dryRun}`);
-        logger.info(`  - transactionTimeout: ${transactionTimeout}`);
         logger.info(`  - numConfirmations: ${numConfirmations}`);
         logger.info(`  - txType: ${txType}`);
         logger.info(`  - delay: ${taskArgs.delay}`);
@@ -271,16 +261,14 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                 );
 
                 await run(
-                    adrastiaConfig.chains[hre.network.name].oracles,
+                    adrastiaConfig,
                     hre.network.name,
                     taskArgs.batch,
                     accounts[taskArgs.batch],
                     store,
-                    txConfig.gasLimit,
                     taskArgs.dryRun,
                     updateTxHandler,
                     taskArgs.delay,
-                    adrastiaConfig.httpCacheSeconds,
                     taskArgs.type,
                     proxyConfig,
                 );

@@ -21,36 +21,27 @@ import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/int
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
 import { NOTICE } from "../logging/log-levels";
+import { TxConfig } from "../config/adrastia-config";
 
 const ONE_GWEI = BigInt("1000000000");
-
-export type UpdateTransactionOptions = {
-    gasLimit?: bigint;
-    gasPriceMultiplierDividend?: bigint;
-    gasPriceMultiplierDivisor?: bigint;
-    waitForConfirmations?: number;
-    transactionTimeout?: number;
-    maxGasPrice?: bigint; // In wei
-    txType?: number;
-};
 
 export interface IUpdateTransactionHandler {
     sendUpdateTx(
         updateable: string | Addressable,
         updateData: BytesLike,
         signer: Signer,
-        options?: UpdateTransactionOptions,
+        options?: TxConfig,
     ): Promise<void>;
 
     handleUpdateTx(tx: ContractTransactionResponse, signer: Signer): Promise<void>;
 }
 
 export class UpdateTransactionHandler implements IUpdateTransactionHandler {
-    updateTxOptions: UpdateTransactionOptions;
+    updateTxOptions: TxConfig;
 
     logger: Logger;
 
-    constructor(updateTxOptions: UpdateTransactionOptions) {
+    constructor(updateTxOptions: TxConfig) {
         if (!updateTxOptions?.transactionTimeout) {
             throw new Error("transactionTimeout must be a number greater than zero");
         }
@@ -179,7 +170,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         return await updateableContract.update(updateData, overrides);
     }
 
-    async getGasPriceData(signer: Signer, options?: UpdateTransactionOptions) {
+    async getGasPriceData(signer: Signer, options?: TxConfig) {
         const feeData: FeeData = await signer.provider.getFeeData();
         const gasPriceFromSigner = feeData.gasPrice;
 
@@ -252,12 +243,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         };
     }
 
-    async sendUpdateTx(
-        updateable: string | Addressable,
-        updateData: BytesLike,
-        signer: Signer,
-        options?: UpdateTransactionOptions,
-    ) {
+    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: TxConfig) {
         const gasPriceData = await this.getGasPriceData(signer, options);
 
         this.logger.log(

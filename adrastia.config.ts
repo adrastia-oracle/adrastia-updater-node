@@ -5,11 +5,10 @@ const config: AdrastiaConfig = {
     chains: {
         polygon: {
             txConfig: {
-                normal: {
-                    speed: "fast",
-                    validFor: 120,
-                    gasLimit: 1000000,
-                },
+                gasPriceMultiplierDividend: 125n,
+                gasPriceMultiplierDivisor: 100n,
+                gasLimit: 1000000n,
+                transactionTimeout: 120 * 1000,
             },
             oracles: [
                 {

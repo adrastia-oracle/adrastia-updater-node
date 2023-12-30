@@ -20,7 +20,7 @@ import { abi as HAS_LIQUIDITY_ACCUMULATOR_ABI } from "@adrastia-oracle/adrastia-
 import { abi as ORACLE_AGGREGATOR_ABI } from "adrastia-core-v4/artifacts/contracts/oracles/IOracleAggregator.sol/IOracleAggregator.json";
 
 // Import config
-import { OracleConfig, TokenConfig, ValidationRoute } from "../config/adrastia-config";
+import { AdrastiaConfig, TokenConfig, TxConfig, ValidationRoute } from "../config/adrastia-config";
 import { AggregatedOracle } from "../../typechain/adrastia-core/oracles";
 
 import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
@@ -33,6 +33,8 @@ import { IUpdateTransactionHandler, UpdateTransactionHandler } from "../util/upd
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
 import { NOTICE, WARNING } from "../logging/log-levels";
+import { List } from "../util/list";
+import { LinkedList } from "../util/linked-list";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -143,7 +145,6 @@ export class AdrastiaUpdater {
     updateTxHandler: IUpdateTransactionHandler;
     updateDelay: number; // in seconds
 
-    useGasLimit = 1000000;
     dryRun = false;
 
     axiosInstance: AxiosInstance;
@@ -156,7 +157,6 @@ export class AdrastiaUpdater {
         chain: string,
         signer: Signer,
         store: IKeyValueStore,
-        useGasLimit: number,
         dryRun: boolean,
         updateTxHandler: IUpdateTransactionHandler,
         updateDelay: number,
@@ -171,7 +171,6 @@ export class AdrastiaUpdater {
         this.updateTxHandler = updateTxHandler;
         this.updateDelay = updateDelay;
 
-        this.useGasLimit = useGasLimit;
         this.dryRun = dryRun;
 
         this.proxyConfig = proxyConfig;
@@ -464,7 +463,7 @@ export class AdrastiaUpdater {
         );
     }
 
-    async handleLaUpdate(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig) {
+    async handleLaUpdate(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig, txConfig: TxConfig) {
         const checkUpdateData = await this.generateLaCheckUpdateData(liquidityAccumulator, token);
 
         if (this.dryRun || (await liquidityAccumulator.canUpdate(checkUpdateData))) {
@@ -482,9 +481,7 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.target, updateData, this.signer, {
-                    gasLimit: BigInt(this.useGasLimit),
-                });
+                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.target, updateData, this.signer, txConfig);
             }
         }
 
@@ -1241,7 +1238,7 @@ export class AdrastiaUpdater {
         return AbiCoder.defaultAbiCoder().encode(["address", "uint", "uint"], [token.address, price, blockTimestamp]);
     }
 
-    async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig) {
+    async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig, txConfig: TxConfig) {
         const checkUpdateData = await this.generatePaCheckUpdateData(priceAccumulator, token);
 
         if (this.dryRun || (await priceAccumulator.canUpdate(checkUpdateData))) {
@@ -1259,9 +1256,7 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(priceAccumulator.target, updateData, this.signer, {
-                    gasLimit: BigInt(this.useGasLimit),
-                });
+                await this.updateTxHandler.sendUpdateTx(priceAccumulator.target, updateData, this.signer, txConfig);
             }
         }
 
@@ -1307,7 +1302,7 @@ export class AdrastiaUpdater {
         return criticalUpdateNeeded;
     }
 
-    async handleOracleUpdate(oracle: AggregatedOracle, token: string) {
+    async handleOracleUpdate(oracle: AggregatedOracle, token: string, txConfig: TxConfig) {
         const updateData = ethers.zeroPadValue(token, 32);
 
         if (this.dryRun || (await oracle.canUpdate(updateData))) {
@@ -1319,16 +1314,14 @@ export class AdrastiaUpdater {
             this.logger.log(NOTICE, "Updating oracle: " + oracle.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, {
-                    gasLimit: BigInt(this.useGasLimit),
-                });
+                await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, txConfig);
             }
         }
 
         await this.resetUpdateDelay(oracle, token);
     }
 
-    async keepAggregatedOracleUpdated(oracleAddress: string, token: TokenConfig) {
+    async keepAggregatedOracleUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
         const oracle: AggregatedOracle = new ethers.Contract(
             oracleAddress,
             AGGREGATED_ORACLE_ABI,
@@ -1342,7 +1335,7 @@ export class AdrastiaUpdater {
         // Update all liquidity accumulators (if necessary)
         for (const liquidityAccumulator of las) {
             try {
-                await this.handleLaUpdate(liquidityAccumulator, token);
+                await this.handleLaUpdate(liquidityAccumulator, token, txConfig);
             } catch (e) {
                 this.logger.error(e);
             }
@@ -1353,7 +1346,7 @@ export class AdrastiaUpdater {
         // Update all price accumulators (if necessary)
         for (const priceAccumulator of pas) {
             try {
-                await this.handlePaUpdate(priceAccumulator, token);
+                await this.handlePaUpdate(priceAccumulator, token, txConfig);
             } catch (e) {
                 this.logger.error(e);
             }
@@ -1362,11 +1355,11 @@ export class AdrastiaUpdater {
         this.logger.info("Checking oracle for needed updates...");
 
         // Update oracle (if necessary)
-        await this.handleOracleUpdate(oracle, token.address);
+        await this.handleOracleUpdate(oracle, token.address, txConfig);
     }
 
-    async keepUpdated(oracleAddress: string, token: TokenConfig) {
-        await this.keepAggregatedOracleUpdated(oracleAddress, token);
+    async keepUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
+        await this.keepAggregatedOracleUpdated(oracleAddress, token, txConfig);
     }
 }
 
@@ -1439,7 +1432,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
 export class AdrastiaAciUpdater extends AdrastiaUpdater {
     automationCompatibleInterface = require("../../artifacts/contracts/AutomationCompatibleInterface.sol/AutomationCompatibleInterface.json");
 
-    async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig) {
+    async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig, txConfig: TxConfig) {
         // Encode token address as bytes array
         const checkUpdateData = await AbiCoder.defaultAbiCoder().encode(["address"], [token.address]);
 
@@ -1454,16 +1447,14 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             this.logger.log(NOTICE, "Updating ACI: " + automatable.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, {
-                    gasLimit: BigInt(this.useGasLimit),
-                });
+                await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, txConfig);
             }
         }
 
         await this.resetUpdateDelay(automatable, token.address);
     }
 
-    async keepUpdated(oracleAddress: string, token: TokenConfig) {
+    async keepUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
         const automatable: AutomationCompatibleInterface = new ethers.Contract(
             oracleAddress,
             this.automationCompatibleInterface.abi,
@@ -1473,24 +1464,66 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
         this.logger.info("Checking if ACI needs an update: " + automatable.target);
 
         try {
-            await this.handleAciUpdate(automatable, token);
+            await this.handleAciUpdate(automatable, token, txConfig);
         } catch (e) {
             this.logger.error(e);
         }
     }
 }
 
+function extractTxConfig(txConfigList: List<TxConfig>): TxConfig {
+    const result: TxConfig = {};
+
+    // Extract the first valid tx config elements and place them in the txConfig object
+    for (const txConfig of txConfigList) {
+        // Extract gasLimit
+        if (result.gasLimit === undefined && txConfig.gasLimit !== undefined) {
+            result.gasLimit = txConfig.gasLimit;
+        }
+
+        // Extract gasPriceMultiplierDividend and gasPriceMultiplierDivisor
+        if (
+            result.gasPriceMultiplierDividend === undefined &&
+            txConfig.gasPriceMultiplierDividend !== undefined &&
+            txConfig.gasPriceMultiplierDivisor !== undefined
+        ) {
+            result.gasPriceMultiplierDividend = txConfig.gasPriceMultiplierDividend;
+            result.gasPriceMultiplierDivisor = txConfig.gasPriceMultiplierDivisor;
+        }
+
+        // Extract waitForConfirmations
+        if (result.waitForConfirmations === undefined && txConfig.waitForConfirmations !== undefined) {
+            result.waitForConfirmations = txConfig.waitForConfirmations;
+        }
+
+        // Extract transactionTimeout
+        if (result.transactionTimeout === undefined && txConfig.transactionTimeout !== undefined) {
+            result.transactionTimeout = txConfig.transactionTimeout;
+        }
+
+        // Extract maxGasPrice
+        if (result.maxGasPrice === undefined && txConfig.maxGasPrice !== undefined) {
+            result.maxGasPrice = txConfig.maxGasPrice;
+        }
+
+        // Extract txType
+        if (result.txType === undefined && txConfig.txType !== undefined) {
+            result.txType = txConfig.txType;
+        }
+    }
+
+    return result;
+}
+
 export async function run(
-    oracleConfigs: OracleConfig[],
+    config: AdrastiaConfig,
     chain: string,
     batch: number,
     signer: Signer,
     store: IKeyValueStore,
-    useGasLimit: number,
     dryRun: boolean,
     updateTxHandler: UpdateTransactionHandler,
     updateDelay: number,
-    httpCacheSeconds: number,
     type: string,
     proxyConfig?: AxiosProxyConfig,
 ) {
@@ -1501,11 +1534,10 @@ export async function run(
             chain,
             signer,
             store,
-            useGasLimit,
             dryRun,
             updateTxHandler,
             updateDelay,
-            httpCacheSeconds,
+            config.httpCacheSeconds,
             proxyConfig,
         );
     } else if (type == "aci-address") {
@@ -1513,11 +1545,10 @@ export async function run(
             chain,
             signer,
             store,
-            useGasLimit,
             dryRun,
             updateTxHandler,
             updateDelay,
-            httpCacheSeconds,
+            config.httpCacheSeconds,
             proxyConfig,
         );
     } else if (type == "dex") {
@@ -1525,21 +1556,39 @@ export async function run(
             chain,
             signer,
             store,
-            useGasLimit,
             dryRun,
             updateTxHandler,
             updateDelay,
-            httpCacheSeconds,
+            config.httpCacheSeconds,
             proxyConfig,
         );
     } else {
         throw new Error("Invalid updater type: " + type);
     }
 
+    (BigInt as any).prototype.toJSON = function () {
+        return this.toString();
+    };
+
     const logger = getLogger();
+
+    const oracleConfigs = config.chains[chain].oracles;
+
+    const txConfigList: List<TxConfig> = new LinkedList<TxConfig>();
+    if (config.txConfig) {
+        txConfigList.addFirst(config.txConfig);
+    }
+    if (config.chains[chain].txConfig) {
+        txConfigList.addFirst(config.chains[chain].txConfig);
+    }
 
     for (const oracleConfig of oracleConfigs) {
         if (!oracleConfig.enabled) continue;
+
+        const oracleTxConfigList: List<TxConfig> = txConfigList.clone();
+        if (oracleConfig.txConfig) {
+            oracleTxConfigList.addFirst(oracleConfig.txConfig);
+        }
 
         for (const token of oracleConfig.tokens) {
             if (!(token.enabled ?? true)) continue;
@@ -1548,7 +1597,14 @@ export async function run(
 
             logger.info("Updating all components for oracle = " + oracleConfig.address + ", token = " + token.address);
 
-            await updater.keepUpdated(oracleConfig.address, token);
+            const tokenTxConfigList: List<TxConfig> = oracleTxConfigList.clone();
+            if (token.txConfig) {
+                tokenTxConfigList.addFirst(token.txConfig);
+            }
+
+            const txConfig = extractTxConfig(tokenTxConfigList);
+
+            await updater.keepUpdated(oracleConfig.address, token, txConfig);
         }
     }
 }
