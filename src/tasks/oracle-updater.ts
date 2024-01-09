@@ -1284,24 +1284,6 @@ export class AdrastiaUpdater {
         return Number(period);
     }
 
-    async oracleNeedsCriticalUpdate(oracle: AggregatedOracle, token: string): Promise<boolean> {
-        this.logger.info("Checking if oracle needs a critical update: " + oracle.target);
-
-        const period = await this.getOraclePeriod(oracle);
-
-        const updateData = ethers.zeroPadValue(token, 32);
-
-        const timeSinceLastUpdate = await oracle.timeSinceLastUpdate(updateData);
-        this.logger.info("Time since last update: " + timeSinceLastUpdate);
-
-        const criticalUpdateNeeded = timeSinceLastUpdate >= BigInt(period * 1.5);
-        if (criticalUpdateNeeded) {
-            this.logger.info("Critical update is needed");
-        }
-
-        return criticalUpdateNeeded;
-    }
-
     async handleOracleUpdate(oracle: AggregatedOracle, token: string, txConfig: TxConfig) {
         const updateData = ethers.zeroPadValue(token, 32);
 
