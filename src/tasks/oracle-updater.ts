@@ -1,4 +1,4 @@
-import { AbiCoder, BaseContract, ethers, Signer } from "ethers";
+import { AbiCoder, BaseContract, Contract, ethers, Signer } from "ethers";
 
 // Import typechain
 import { IERC165 } from "../../typechain/openzeppelin-v4";
@@ -27,7 +27,12 @@ import axios, { AxiosInstance, AxiosProxyConfig, AxiosResponse } from "axios";
 import axiosRetry from "axios-retry";
 import { setupCache } from "axios-cache-adapter";
 import { IKeyValueStore } from "../util/key-value-store";
-import { IOracleAggregator } from "../../typechain/adrastia-core-v4";
+import {
+    IOracle__factory,
+    IOracleAggregator,
+    LiquidityAccumulator__factory,
+    PriceAccumulator__factory,
+} from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 import { IUpdateTransactionHandler, UpdateTransactionHandler } from "../util/update-tx-handler";
 import { Logger } from "winston";
@@ -35,6 +40,7 @@ import { getLogger } from "../logging/logging";
 import { NOTICE, WARNING } from "../logging/log-levels";
 import { List } from "../util/list";
 import { LinkedList } from "../util/linked-list";
+import { Multicall2 } from "../../typechain-types";
 
 // TODO: Track the items put into the store and use that to implement clear, length, and iterate
 class DefenderAxiosStore {
@@ -132,6 +138,20 @@ const weightedMedian = (values: number[], weights: number[]): number => {
     return sortedValues[belowMidpointIndex - 1];
 };
 
+type Multicall2Call = {
+    target: string;
+    callData: string;
+};
+
+type WorkItem = {
+    token: TokenConfig;
+    address: string;
+    type: "aci" | "price-accumulator" | "liquidity-accumulator" | "oracle";
+    checkCall: Multicall2Call;
+    needsWork?: boolean;
+    txConfig: TxConfig;
+};
+
 export class AdrastiaUpdater {
     // Interface IDs
     static IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
@@ -153,6 +173,8 @@ export class AdrastiaUpdater {
 
     logger: Logger;
 
+    multicall2: Multicall2 | undefined;
+
     constructor(
         chain: string,
         signer: Signer,
@@ -162,6 +184,7 @@ export class AdrastiaUpdater {
         updateDelay: number,
         httpCacheSeconds: number,
         proxyConfig?: AxiosProxyConfig,
+        multicall2Address?: string,
     ) {
         this.logger = getLogger();
 
@@ -200,6 +223,15 @@ export class AdrastiaUpdater {
             retries: 3,
             retryDelay: axiosRetry.exponentialDelay,
         });
+
+        if (multicall2Address !== undefined) {
+            const multicall2DeploymentData = require("../../artifacts/contracts/Multicall2.sol/Multicall2.json");
+            this.multicall2 = new Contract(
+                multicall2Address,
+                multicall2DeploymentData.abi,
+                this.signer,
+            ) as any as Multicall2;
+        }
     }
 
     async getAccumulators(oracleAddress: string, token: string) {
@@ -425,15 +457,15 @@ export class AdrastiaUpdater {
         return true;
     }
 
-    async resetUpdateDelay(contract: BaseContract, token: string): Promise<void> {
+    async resetUpdateDelay(contractAddress: string, token: string): Promise<void> {
         if (this.updateDelay <= 0) {
             // No update delay configured, so no need to reset it
             return;
         }
 
-        this.logger.info("Resetting update delay for contract: " + contract.target + " (token: " + token + ")");
+        this.logger.info("Resetting update delay for contract: " + contractAddress + " (token: " + token + ")");
 
-        const storeKey = this.chain + "." + contract.target + "." + token + ".updateNeededSince";
+        const storeKey = this.chain + "." + contractAddress + "." + token + ".updateNeededSince";
 
         await this.store.del(storeKey);
     }
@@ -485,7 +517,7 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(liquidityAccumulator, token.address);
+        await this.resetUpdateDelay(liquidityAccumulator.target as string, token.address);
     }
 
     calculateChange(a: bigint, b: bigint, changePrecision: bigint) {
@@ -1260,7 +1292,7 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(priceAccumulator, token.address);
+        await this.resetUpdateDelay(priceAccumulator.target as string, token.address);
     }
 
     async getOraclePeriod(oracle: AggregatedOracle): Promise<number> {
@@ -1300,48 +1332,245 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(oracle, token);
+        await this.resetUpdateDelay(oracle.target as string, token);
     }
 
-    async keepAggregatedOracleUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
-        const oracle: AggregatedOracle = new ethers.Contract(
-            oracleAddress,
-            AGGREGATED_ORACLE_ABI,
-            this.signer,
-        ) as unknown as AggregatedOracle;
+    async discoverWorkItems(oracleAddress: string, token: TokenConfig, txConfig: TxConfig): Promise<List<WorkItem>> {
+        const workItems: List<WorkItem> = new LinkedList<WorkItem>();
+
+        // First we add liquidity accumulator work items, then price accumulator work items, then oracle work items.
+
+        const laInterface = LiquidityAccumulator__factory.createInterface();
+        const paInterface = PriceAccumulator__factory.createInterface();
+        const oracleInterface = IOracle__factory.createInterface();
 
         const { las, pas } = await this.getAccumulators(oracleAddress, token.address);
 
-        this.logger.info("Checking liquidity accumulators for needed updates...");
+        // Add liquidity accumulator work items
+        for (const la of las) {
+            const checkData = await this.generateLaCheckUpdateData(la, token);
 
-        // Update all liquidity accumulators (if necessary)
-        for (const liquidityAccumulator of las) {
-            try {
-                await this.handleLaUpdate(liquidityAccumulator, token, txConfig);
-            } catch (e) {
-                this.logger.error(e);
-            }
+            const workItem: WorkItem = {
+                token: token,
+                address: la.target as string,
+                type: "liquidity-accumulator",
+                checkCall: {
+                    target: la.target as string,
+                    callData: laInterface.encodeFunctionData("needsUpdate", [checkData]),
+                },
+                txConfig: txConfig,
+            };
+
+            workItems.add(workItem);
         }
 
-        this.logger.info("Checking price accumulators for needed updates...");
+        // Add price accumulator work items
+        for (const pa of pas) {
+            const checkData = await this.generatePaCheckUpdateData(pa, token);
 
-        // Update all price accumulators (if necessary)
-        for (const priceAccumulator of pas) {
-            try {
-                await this.handlePaUpdate(priceAccumulator, token, txConfig);
-            } catch (e) {
-                this.logger.error(e);
-            }
+            const workItem: WorkItem = {
+                token: token,
+                address: pa.target as string,
+                type: "price-accumulator",
+                checkCall: {
+                    target: pa.target as string,
+                    callData: paInterface.encodeFunctionData("needsUpdate", [checkData]),
+                },
+                txConfig: txConfig,
+            };
+
+            workItems.add(workItem);
         }
 
-        this.logger.info("Checking oracle for needed updates...");
+        // Add oracle work items
+        {
+            const checkData = ethers.zeroPadValue(token.address, 32);
 
-        // Update oracle (if necessary)
-        await this.handleOracleUpdate(oracle, token.address, txConfig);
+            const workItem: WorkItem = {
+                token: token,
+                address: oracleAddress,
+                type: "oracle",
+                checkCall: {
+                    target: oracleAddress,
+                    callData: oracleInterface.encodeFunctionData("needsUpdate", [checkData]),
+                },
+                txConfig: txConfig,
+            };
+
+            workItems.add(workItem);
+        }
+
+        return workItems;
     }
 
-    async keepUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
-        await this.keepAggregatedOracleUpdated(oracleAddress, token, txConfig);
+    async processCheckWorkItemResult(workItem: WorkItem, returnData: any) {
+        const abiCoder = new AbiCoder();
+
+        const canUpdate = abiCoder.decode(["bool"], returnData)[0];
+
+        if (canUpdate) {
+            workItem.needsWork = true;
+        }
+    }
+
+    async checkWorkItems(workItems: List<WorkItem>): Promise<number> {
+        var calls: Multicall2Call[] = [];
+
+        // Collect calls
+        for (const workItem of workItems) {
+            calls.push(workItem.checkCall);
+        }
+
+        // Execute calls
+        const results = await this.multicall2.tryAggregate.staticCall(false, calls);
+
+        if (results.length != workItems.size()) {
+            throw new Error("Multicall2 returned " + results.length + " results, expected " + workItems.size());
+        }
+
+        // Process results
+        var i = 0;
+        var amountOfWork = 0;
+        for (const workItem of workItems) {
+            try {
+                if (results[i].success) {
+                    // Call was successful (did not revert), so we can process the result
+                    await this.processCheckWorkItemResult(workItem, results[i].returnData);
+
+                    if (workItem.needsWork) {
+                        ++amountOfWork;
+
+                        this.logger.info(
+                            "Work item needs work: " +
+                                workItem.address +
+                                "." +
+                                workItem.token.address +
+                                " (" +
+                                workItem.type +
+                                ")",
+                        );
+                    } else {
+                        // No work needed, so we can reset the update delay
+                        await this.resetUpdateDelay(workItem.address, workItem.token.address);
+                    }
+                }
+            } catch (e) {
+                this.logger.error(e);
+            } finally {
+                ++i;
+            }
+        }
+
+        return amountOfWork;
+    }
+
+    async processWorkItem(workItem: WorkItem) {
+        if (workItem.type === "liquidity-accumulator") {
+            const la: LiquidityAccumulator = new ethers.Contract(
+                workItem.address,
+                LIQUIDITY_ACCUMULATOR_ABI,
+                this.signer,
+            ) as unknown as LiquidityAccumulator;
+
+            await this.handleLaUpdate(la, workItem.token, workItem.txConfig);
+        } else if (workItem.type === "price-accumulator") {
+            const pa = new ethers.Contract(
+                workItem.address,
+                PRICE_ACCUMULATOR_ABI,
+                this.signer,
+            ) as unknown as PriceAccumulator;
+
+            await this.handlePaUpdate(pa, workItem.token, workItem.txConfig);
+        } else if (workItem.type === "oracle") {
+            const oracle: AggregatedOracle = new ethers.Contract(
+                workItem.address,
+                AGGREGATED_ORACLE_ABI,
+                this.signer,
+            ) as unknown as AggregatedOracle;
+
+            await this.handleOracleUpdate(oracle, workItem.token.address, workItem.txConfig);
+        } else {
+            throw new Error("Unknown work item type: " + workItem.type);
+        }
+    }
+
+    async process(config: AdrastiaConfig, chain: string, batch: number) {
+        const workItems: List<WorkItem> = new LinkedList<WorkItem>();
+
+        const oracleConfigs = config.chains[chain].oracles;
+
+        const txConfigList: List<TxConfig> = new LinkedList<TxConfig>();
+        if (config.txConfig) {
+            txConfigList.addFirst(config.txConfig);
+        }
+        if (config.chains[chain].txConfig) {
+            txConfigList.addFirst(config.chains[chain].txConfig);
+        }
+
+        // Collect work items
+        for (const oracleConfig of oracleConfigs) {
+            if (!oracleConfig.enabled) continue;
+
+            const oracleTxConfigList: List<TxConfig> = txConfigList.clone();
+            if (oracleConfig.txConfig) {
+                oracleTxConfigList.addFirst(oracleConfig.txConfig);
+            }
+
+            for (const token of oracleConfig.tokens) {
+                if (!(token.enabled ?? true)) continue;
+
+                if (token.batch != batch) continue;
+
+                const tokenTxConfigList: List<TxConfig> = oracleTxConfigList.clone();
+                if (token.txConfig) {
+                    tokenTxConfigList.addFirst(token.txConfig);
+                }
+
+                const txConfig = extractTxConfig(tokenTxConfigList);
+
+                const newWorkItems = await this.discoverWorkItems(oracleConfig.address, token, txConfig);
+                workItems.addAll(newWorkItems);
+            }
+        }
+
+        this.logger.info("Found " + workItems.size() + " work items");
+
+        var amountOfWork = workItems.size();
+
+        if (this.multicall2 !== undefined) {
+            // Check work items using multicall2
+            amountOfWork = await this.checkWorkItems(workItems);
+
+            this.logger.info("Found " + amountOfWork + " work items that need work");
+        } else {
+            // Multicall2 not supported, so we need to check each work item individually
+            for (const workItem of workItems) {
+                workItem.needsWork = true;
+            }
+        }
+
+        if (amountOfWork > 0) {
+            // Process work items
+            for (const workItem of workItems) {
+                if (workItem.needsWork) {
+                    try {
+                        this.logger.info(
+                            "Processing work item: " +
+                                workItem.address +
+                                "." +
+                                workItem.token.address +
+                                " (" +
+                                workItem.type +
+                                ")",
+                        );
+
+                        await this.processWorkItem(workItem);
+                    } catch (e) {
+                        this.logger.error(e);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1433,22 +1662,55 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(automatable, token.address);
+        await this.resetUpdateDelay(automatable.target as string, token.address);
     }
 
-    async keepUpdated(oracleAddress: string, token: TokenConfig, txConfig: TxConfig) {
+    async processCheckWorkItemResult(workItem: WorkItem, returnData: any) {
+        const upkeep = AbiCoder.defaultAbiCoder().decode(["bool", "bytes"], returnData);
+
+        if (upkeep[0] === true) {
+            workItem.needsWork = true;
+        }
+    }
+
+    async discoverWorkItems(oracleAddress: string, token: TokenConfig, txConfig: TxConfig): Promise<List<WorkItem>> {
+        const workItems: List<WorkItem> = new LinkedList<WorkItem>();
+
         const automatable: AutomationCompatibleInterface = new ethers.Contract(
             oracleAddress,
             this.automationCompatibleInterface.abi,
             this.signer,
         ) as unknown as AutomationCompatibleInterface;
 
-        this.logger.info("Checking if ACI needs an update: " + automatable.target);
+        const checkData = AbiCoder.defaultAbiCoder().encode(["address"], [token.address]);
 
-        try {
-            await this.handleAciUpdate(automatable, token, txConfig);
-        } catch (e) {
-            this.logger.error(e);
+        const workItem: WorkItem = {
+            token: token,
+            address: automatable.target as string,
+            type: "aci",
+            checkCall: {
+                target: automatable.target as string,
+                callData: automatable.interface.encodeFunctionData("checkUpkeep", [checkData]),
+            },
+            txConfig: txConfig,
+        };
+
+        workItems.add(workItem);
+
+        return workItems;
+    }
+
+    async processWorkItem(workItem: WorkItem) {
+        if (workItem.type === "aci") {
+            const automatable: AutomationCompatibleInterface = new ethers.Contract(
+                workItem.address,
+                this.automationCompatibleInterface.abi,
+                this.signer,
+            ) as unknown as AutomationCompatibleInterface;
+
+            await this.handleAciUpdate(automatable, workItem.token, workItem.txConfig);
+        } else {
+            throw new Error("Unknown work item type: " + workItem.type);
         }
     }
 }
@@ -1521,6 +1783,7 @@ export async function run(
             updateDelay,
             config.httpCacheSeconds,
             proxyConfig,
+            config.chains[chain].multicall2Address,
         );
     } else if (type == "aci-address") {
         updater = new AdrastiaAciUpdater(
@@ -1532,6 +1795,7 @@ export async function run(
             updateDelay,
             config.httpCacheSeconds,
             proxyConfig,
+            config.chains[chain].multicall2Address,
         );
     } else if (type == "dex") {
         updater = new AdrastiaUpdater(
@@ -1543,6 +1807,7 @@ export async function run(
             updateDelay,
             config.httpCacheSeconds,
             proxyConfig,
+            config.chains[chain].multicall2Address,
         );
     } else {
         throw new Error("Invalid updater type: " + type);
@@ -1552,41 +1817,5 @@ export async function run(
         return this.toString();
     };
 
-    const logger = getLogger();
-
-    const oracleConfigs = config.chains[chain].oracles;
-
-    const txConfigList: List<TxConfig> = new LinkedList<TxConfig>();
-    if (config.txConfig) {
-        txConfigList.addFirst(config.txConfig);
-    }
-    if (config.chains[chain].txConfig) {
-        txConfigList.addFirst(config.chains[chain].txConfig);
-    }
-
-    for (const oracleConfig of oracleConfigs) {
-        if (!oracleConfig.enabled) continue;
-
-        const oracleTxConfigList: List<TxConfig> = txConfigList.clone();
-        if (oracleConfig.txConfig) {
-            oracleTxConfigList.addFirst(oracleConfig.txConfig);
-        }
-
-        for (const token of oracleConfig.tokens) {
-            if (!(token.enabled ?? true)) continue;
-
-            if (token.batch != batch) continue;
-
-            logger.info("Updating all components for oracle = " + oracleConfig.address + ", token = " + token.address);
-
-            const tokenTxConfigList: List<TxConfig> = oracleTxConfigList.clone();
-            if (token.txConfig) {
-                tokenTxConfigList.addFirst(token.txConfig);
-            }
-
-            const txConfig = extractTxConfig(tokenTxConfigList);
-
-            await updater.keepUpdated(oracleConfig.address, token, txConfig);
-        }
-    }
+    await updater.process(config, chain, batch);
 }
