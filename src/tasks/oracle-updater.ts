@@ -1537,7 +1537,7 @@ export class AdrastiaUpdater {
 
         var amountOfWork = workItems.size();
 
-        if (this.multicall2 !== undefined) {
+        if (this.multicall2 !== undefined && !this.dryRun) {
             // Check work items using multicall2
             amountOfWork = await this.checkWorkItems(workItems);
 
