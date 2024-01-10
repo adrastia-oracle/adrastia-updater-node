@@ -37,7 +37,14 @@ function parseIntOrUndefined(value: string | undefined): number | undefined {
 }
 
 task("print-network", "Prints the current network config", async (_, hre) => {
-    console.log(hre.network.config);
+    // Clone the network config and remove sensitive and junk information
+    var networkConfig = Object.assign({}, hre.network.config);
+    delete networkConfig.accounts;
+    delete networkConfig.gas;
+    delete networkConfig.gasPrice;
+    delete networkConfig.gasMultiplier;
+
+    console.log(networkConfig);
 });
 
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
