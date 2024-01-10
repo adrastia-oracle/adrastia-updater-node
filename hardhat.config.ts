@@ -36,6 +36,10 @@ function parseIntOrUndefined(value: string | undefined): number | undefined {
     return parseInt(value);
 }
 
+task("print-network", "Prints the current network config", async (_, hre) => {
+    console.log(hre.network.config);
+});
+
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     const accounts = await hre.ethers.getSigners();
 
