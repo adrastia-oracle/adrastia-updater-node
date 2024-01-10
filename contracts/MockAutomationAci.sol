@@ -11,12 +11,14 @@ contract MockAutomationAci is AutomationCompatibleInterface {
         uint256 fulfillBlockNumber;
     }
 
-    Upkeep public upkeep;
+    mapping(address => Upkeep) public upkeep;
 
     event UpkeepPerformed(bytes performData, uint256 blockDelay);
     
     function orderNewWork(bytes calldata performData) external {
-        upkeep = Upkeep({
+        address token = abi.decode(performData, (address));
+
+        upkeep[token] = Upkeep({
             upkeepNeeded: true,
             performData: performData,
             orderBlockNumber: block.number,
@@ -24,14 +26,18 @@ contract MockAutomationAci is AutomationCompatibleInterface {
         });
     }
     
-    function checkUpkeep(bytes calldata) external view override returns (bool, bytes memory) {
-        Upkeep memory _upkeep = upkeep;
+    function checkUpkeep(bytes calldata checkData) external view override returns (bool, bytes memory) {
+        address token = abi.decode(checkData, (address));
+
+        Upkeep memory _upkeep = upkeep[token];
 
         return (_upkeep.upkeepNeeded, _upkeep.performData);
     }
     
     function performUpkeep(bytes calldata petformData) external override {
-        Upkeep storage _upkeep = upkeep;
+        address token = abi.decode(petformData, (address));
+
+        Upkeep storage _upkeep = upkeep[token];
 
         require(keccak256(_upkeep.performData) == keccak256(petformData), "petformData must match");
         require(_upkeep.upkeepNeeded, "no upkeep needed");
