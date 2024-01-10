@@ -1,6 +1,7 @@
 [Unit]
 Description=<service-name>
-After=network.target
+Requires=redis.service
+After=network.target redis.service
 
 [Service]
 Type=notify
@@ -10,6 +11,7 @@ Group=<group>
 Restart=always
 RestartSec=5
 WorkingDirectory=<project-directory>
+EnvironmentFile=-<path-to-optional-env-file-if-any>
 ExecStartPre=chmod +x ./services/setup-node.sh
 ExecStartPre=chmod +x ./services/<service-name>.sh
 ExecStart=/bin/bash ./services/<service-name>.sh
