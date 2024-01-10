@@ -309,6 +309,9 @@ const config: HardhatUserConfig = {
                   ]
                 : undefined,
         },
+        localhost: {
+            accounts: process.env.PRIVATE_KEY_UPDATER ? [process.env.PRIVATE_KEY_UPDATER] : undefined,
+        },
         polygon: {
             url: process.env.POLYGON_URL ?? "",
             accounts: {
