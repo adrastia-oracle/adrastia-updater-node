@@ -11,7 +11,7 @@ export type ValidationRoute = {
 };
 
 export type ValidationConfig = {
-    enabled: boolean; // TODO: Replace this with disabled (default false)
+    disabled?: boolean; // Default: false
     minimumWeight: number;
     sources: ValidationSource[];
     allowedChangeBps: number;
@@ -28,7 +28,7 @@ export type TxConfig = {
 };
 
 export type TokenConfig = {
-    enabled?: boolean; // TODO: Replace this with disabled (default false)
+    disabled?: boolean; // Default: false
     address: string;
     txConfig?: TxConfig;
     validation?: ValidationConfig;
@@ -37,7 +37,7 @@ export type TokenConfig = {
 };
 
 export type OracleConfig = {
-    enabled: boolean; // TODO: Replace this with disabled (default false)
+    disabled?: boolean; // Default: false
     address: string;
     txConfig?: TxConfig;
     tokens: TokenConfig[];

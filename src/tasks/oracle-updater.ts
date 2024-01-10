@@ -1258,7 +1258,7 @@ export class AdrastiaUpdater {
         // Get the latest block timestamp
         const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
 
-        if (token.validation?.enabled) {
+        if (token.validation !== undefined && token.validation?.disabled !== true) {
             const validation = await this.validatePrice(priceAccumulator, price, token);
             if (!validation.validated) {
                 return undefined;
@@ -1509,7 +1509,7 @@ export class AdrastiaUpdater {
 
         // Collect work items
         for (const oracleConfig of oracleConfigs) {
-            if (!oracleConfig.enabled) continue;
+            if (oracleConfig.disabled) continue;
 
             const oracleTxConfigList: List<TxConfig> = txConfigList.clone();
             if (oracleConfig.txConfig) {
@@ -1517,7 +1517,7 @@ export class AdrastiaUpdater {
             }
 
             for (const token of oracleConfig.tokens) {
-                if (!(token.enabled ?? true)) continue;
+                if (token.disabled) continue;
 
                 if (token.batch != batch) continue;
 

@@ -12,14 +12,11 @@ const config: AdrastiaConfig = {
             },
             oracles: [
                 {
-                    enabled: true,
                     address: "0x637D98D08331Af95DF392CC035629e64987E9Ae3", // Aggregated oracle USDC
                     tokens: [
                         {
-                            enabled: true,
                             address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH
                             validation: {
-                                enabled: true,
                                 minimumWeight: 8,
                                 sources: [
                                     {
