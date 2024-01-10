@@ -3,6 +3,12 @@
  */
 export interface List<T> {
     /**
+     * Adds an element to the list at the end.
+     * @param value The element to add.
+     */
+    add(value: T): void;
+
+    /**
      * Adds an element to the list at the specified index.
      * @param value The element to add.
      * @param index The position at which to add the element.
@@ -14,6 +20,12 @@ export interface List<T> {
      * @param value The element to add.
      */
     addFirst(value: T): void;
+
+    /**
+     * Adds all elements from the specified iterable to the list.
+     * @param values The values to add.
+     */
+    addAll(values: Iterable<T>): void;
 
     /**
      * Removes and returns the first element of the list.

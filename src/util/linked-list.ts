@@ -87,6 +87,16 @@ export class LinkedList<T> implements List<T> {
     }
 
     /**
+     * Adds all elements from the specified iterable to the linked list.
+     * @param {Iterable<T>} values - The values to be added.
+     */
+    public addAll(values: Iterable<T>): void {
+        for (const value of values) {
+            this.add(value);
+        }
+    }
+
+    /**
      * Removes and returns the first element from the linked list.
      * @returns {T | null} The value of the removed element, or null if the list is empty.
      * @throws Will throw an error if there are no elements to remove.
