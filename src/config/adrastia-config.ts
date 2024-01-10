@@ -29,7 +29,7 @@ export type TxConfig = {
 
 export type TokenConfig = {
     disabled?: boolean; // Default: false
-    address: string;
+    address: string | string[];
     txConfig?: TxConfig;
     validation?: ValidationConfig;
     batch: number;

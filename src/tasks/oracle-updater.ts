@@ -471,7 +471,7 @@ export class AdrastiaUpdater {
     }
 
     async generateLaCheckUpdateData(liquidityAccumulator: LiquidityAccumulator, token: TokenConfig) {
-        return ethers.zeroPadValue(token.address, 32);
+        return ethers.zeroPadValue(token.address as string, 32);
     }
 
     async generateLaUpdateData(
@@ -480,7 +480,7 @@ export class AdrastiaUpdater {
         checkUpdateData: string,
     ) {
         const [tokenLiquidity, quoteTokenLiquidity] = await liquidityAccumulator["consultLiquidity(address,uint256)"](
-            token.address,
+            token.address as string,
             0,
         );
 
@@ -491,7 +491,7 @@ export class AdrastiaUpdater {
 
         return AbiCoder.defaultAbiCoder().encode(
             ["address", "uint", "uint", "uint"],
-            [token.address, tokenLiquidity, quoteTokenLiquidity, blockTimestamp],
+            [token.address as string, tokenLiquidity, quoteTokenLiquidity, blockTimestamp],
         );
     }
 
@@ -499,7 +499,7 @@ export class AdrastiaUpdater {
         const checkUpdateData = await this.generateLaCheckUpdateData(liquidityAccumulator, token);
 
         if (this.dryRun || (await liquidityAccumulator.canUpdate(checkUpdateData))) {
-            if (await this.updateIsDelayed(liquidityAccumulator, token.address)) {
+            if (await this.updateIsDelayed(liquidityAccumulator, token.address as string)) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -517,7 +517,7 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(liquidityAccumulator.target as string, token.address);
+        await this.resetUpdateDelay(liquidityAccumulator.target as string, token.address as string);
     }
 
     calculateChange(a: bigint, b: bigint, changePrecision: bigint) {
@@ -1206,7 +1206,7 @@ export class AdrastiaUpdater {
 
         const quoteTokenDecimals = await this.getAccumulatorQuoteTokenDecimals(accumulator);
 
-        const updateData = ethers.zeroPadValue(token.address, 32);
+        const updateData = ethers.zeroPadValue(token.address as string, 32);
 
         try {
             apiPrice = ethers.parseUnits(
@@ -1247,11 +1247,11 @@ export class AdrastiaUpdater {
     }
 
     async generatePaCheckUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig) {
-        return ethers.zeroPadValue(token.address, 32);
+        return ethers.zeroPadValue(token.address as string, 32);
     }
 
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
-        var price = await priceAccumulator["consultPrice(address,uint256)"](token.address, 0);
+        var price = await priceAccumulator["consultPrice(address,uint256)"](token.address as string, 0);
 
         // Get the latest block number
         const blockNumber = await this.signer.provider.getBlockNumber();
@@ -1267,14 +1267,17 @@ export class AdrastiaUpdater {
             price = validation.usePrice;
         }
 
-        return AbiCoder.defaultAbiCoder().encode(["address", "uint", "uint"], [token.address, price, blockTimestamp]);
+        return AbiCoder.defaultAbiCoder().encode(
+            ["address", "uint", "uint"],
+            [token.address as string, price, blockTimestamp],
+        );
     }
 
     async handlePaUpdate(priceAccumulator: PriceAccumulator, token: TokenConfig, txConfig: TxConfig) {
         const checkUpdateData = await this.generatePaCheckUpdateData(priceAccumulator, token);
 
         if (this.dryRun || (await priceAccumulator.canUpdate(checkUpdateData))) {
-            if (await this.updateIsDelayed(priceAccumulator, token.address)) {
+            if (await this.updateIsDelayed(priceAccumulator, token.address as string)) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -1292,7 +1295,7 @@ export class AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(priceAccumulator.target as string, token.address);
+        await this.resetUpdateDelay(priceAccumulator.target as string, token.address as string);
     }
 
     async getOraclePeriod(oracle: AggregatedOracle): Promise<number> {
@@ -1344,7 +1347,7 @@ export class AdrastiaUpdater {
         const paInterface = PriceAccumulator__factory.createInterface();
         const oracleInterface = IOracle__factory.createInterface();
 
-        const { las, pas } = await this.getAccumulators(oracleAddress, token.address);
+        const { las, pas } = await this.getAccumulators(oracleAddress, token.address as string);
 
         // Add liquidity accumulator work items
         for (const la of las) {
@@ -1384,7 +1387,7 @@ export class AdrastiaUpdater {
 
         // Add oracle work items
         {
-            const checkData = ethers.zeroPadValue(token.address, 32);
+            const checkData = ethers.zeroPadValue(token.address as string, 32);
 
             const workItem: WorkItem = {
                 token: token,
@@ -1451,7 +1454,7 @@ export class AdrastiaUpdater {
                         );
                     } else {
                         // No work needed, so we can reset the update delay
-                        await this.resetUpdateDelay(workItem.address, workItem.token.address);
+                        await this.resetUpdateDelay(workItem.address, workItem.token.address as string);
                     }
                 }
             } catch (e) {
@@ -1488,7 +1491,7 @@ export class AdrastiaUpdater {
                 this.signer,
             ) as unknown as AggregatedOracle;
 
-            await this.handleOracleUpdate(oracle, workItem.token.address, workItem.txConfig);
+            await this.handleOracleUpdate(oracle, workItem.token.address as string, workItem.txConfig);
         } else {
             throw new Error("Unknown work item type: " + workItem.type);
         }
@@ -1528,8 +1531,21 @@ export class AdrastiaUpdater {
 
                 const txConfig = extractTxConfig(tokenTxConfigList);
 
-                const newWorkItems = await this.discoverWorkItems(oracleConfig.address, token, txConfig);
-                workItems.addAll(newWorkItems);
+                const tokens: TokenConfig[] = [];
+                if (typeof token.address === "string") {
+                    // Create a clone of the token and add it
+                    tokens.push({ ...token });
+                } else {
+                    // Create a clone of the token for each address
+                    for (const address of token.address) {
+                        tokens.push({ ...token, address: address });
+                    }
+                }
+
+                for (const tokenClone of tokens) {
+                    const newWorkItems = await this.discoverWorkItems(oracleConfig.address, tokenClone, txConfig);
+                    workItems.addAll(newWorkItems);
+                }
             }
         }
 
@@ -1623,7 +1639,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
 
         this.logger.info("Fast gas price: " + gasPriceFormatted);
 
-        return AbiCoder.defaultAbiCoder().encode(["address", "uint"], [token.address, gasPrice]);
+        return AbiCoder.defaultAbiCoder().encode(["address", "uint"], [token.address as string, gasPrice]);
     }
 
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
@@ -1645,12 +1661,12 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
 
     async handleAciUpdate(automatable: AutomationCompatibleInterface, token: TokenConfig, txConfig: TxConfig) {
         // Encode token address as bytes array
-        const checkUpdateData = await AbiCoder.defaultAbiCoder().encode(["address"], [token.address]);
+        const checkUpdateData = await AbiCoder.defaultAbiCoder().encode(["address"], [token.address as string]);
 
         const upkeep: any = await automatable.checkUpkeep.staticCall(checkUpdateData);
 
         if (this.dryRun || upkeep.upkeepNeeded) {
-            if (await this.updateIsDelayed(automatable, token.address)) {
+            if (await this.updateIsDelayed(automatable, token.address as string)) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -1662,7 +1678,7 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             }
         }
 
-        await this.resetUpdateDelay(automatable.target as string, token.address);
+        await this.resetUpdateDelay(automatable.target as string, token.address as string);
     }
 
     async processCheckWorkItemResult(workItem: WorkItem, returnData: any) {
@@ -1682,7 +1698,7 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             this.signer,
         ) as unknown as AutomationCompatibleInterface;
 
-        const checkData = AbiCoder.defaultAbiCoder().encode(["address"], [token.address]);
+        const checkData = AbiCoder.defaultAbiCoder().encode(["address"], [token.address as string]);
 
         const workItem: WorkItem = {
             token: token,
