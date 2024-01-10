@@ -45,6 +45,7 @@ export type OracleConfig = {
 
 export type ChainConfig = {
     txConfig?: TxConfig;
+    multicall2Address?: string;
     oracles: OracleConfig[];
 };
 
