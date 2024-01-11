@@ -43,10 +43,16 @@ export type OracleConfig = {
     tokens: TokenConfig[];
 };
 
+export type BatchConfig = {
+    pollingInterval?: number; // In milliseconds. Default: one-shot.
+    writeDelay?: number; // In milliseconds. Default: 0.
+};
+
 export type ChainConfig = {
     txConfig?: TxConfig;
     multicall2Address?: string;
     oracles: OracleConfig[];
+    batches?: Record<number, BatchConfig>;
 };
 
 export type AdrastiaConfig = {

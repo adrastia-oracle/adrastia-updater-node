@@ -223,6 +223,27 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             };
         }
 
+        // Extract polling interval (measured in ms)
+        var pollingInterval = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.pollingInterval;
+        if (pollingInterval === undefined && taskArgs.every !== undefined) {
+            pollingInterval = taskArgs.every * 1000; // Convert seconds to ms
+        }
+        const repeatTimes = pollingInterval === undefined ? 1 : Number.MAX_SAFE_INTEGER;
+        if (pollingInterval === undefined) {
+            pollingInterval = 0;
+        }
+        // Extract write delay (measured in seconds)
+        var writeDelay = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.writeDelay;
+        if (writeDelay !== undefined) {
+            writeDelay /= 1000; // Convert ms to seconds
+        }
+        if (writeDelay === undefined && taskArgs.delay !== undefined) {
+            writeDelay = taskArgs.delay; // taskArgs.delay is in seconds
+        }
+        if (writeDelay === undefined) {
+            writeDelay = 0;
+        }
+
         const notify = taskArgs.service ? require("sd-notify") : undefined;
 
         if (taskArgs.service) {
@@ -233,11 +254,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         logger.info("Starting the oracle updater with the following parameters:");
         logger.info(`  - workerConfig: ${taskArgs.workerConfig}`);
         logger.info(`  - batch: ${taskArgs.batch}`);
-        logger.info(`  - every: ${taskArgs.every}`);
+        logger.info(`  - pollingInterval: ${pollingInterval}ms`);
         logger.info(`  - dryRun: ${taskArgs.dryRun}`);
         logger.info(`  - numConfirmations: ${numConfirmations}`);
         logger.info(`  - txType: ${txType}`);
-        logger.info(`  - delay: ${taskArgs.delay}`);
+        logger.info(`  - delay: ${writeDelay}ms`);
         logger.info(`  - service: ${taskArgs.service}`);
         logger.info(`  - type: ${taskArgs.type}`);
 
@@ -252,9 +273,6 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         if (proxyConfig !== undefined) {
             logger.info(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
         }
-
-        const repeatInterval = taskArgs.every ?? 0;
-        const repeatTimes = taskArgs.every === undefined ? 1 : Number.MAX_SAFE_INTEGER;
 
         var timesRepeated = 0;
 
@@ -279,7 +297,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     store,
                     taskArgs.dryRun,
                     updateTxHandler,
-                    taskArgs.delay,
+                    writeDelay,
                     taskArgs.type,
                     proxyConfig,
                 );
@@ -287,10 +305,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                 logger.error(e);
             }
 
-            if (repeatInterval > 0) {
-                logger.info("Sleeping for %i seconds", repeatInterval);
+            if (pollingInterval > 0) {
+                logger.info("Sleeping for %i ms", pollingInterval);
 
-                await new Promise((resolve) => setTimeout(resolve, repeatInterval * 1000));
+                await new Promise((resolve) => setTimeout(resolve, pollingInterval));
             }
         }
     });
