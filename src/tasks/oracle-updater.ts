@@ -474,6 +474,21 @@ export class AdrastiaUpdater {
         return ethers.zeroPadValue(token.address as string, 32);
     }
 
+    async getCurrentBlockTimestamp(): Promise<number> {
+        if (this.multicall2 === undefined) {
+            // Get the latest block number
+            const blockNumber = await this.signer.provider.getBlockNumber();
+            // Get the latest block timestamp
+            const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+
+            return blockTimestamp;
+        } else {
+            const blockTimestamp = await this.multicall2.getCurrentBlockTimestamp();
+
+            return Number(blockTimestamp);
+        }
+    }
+
     async generateLaUpdateData(
         liquidityAccumulator: LiquidityAccumulator,
         token: TokenConfig,
@@ -484,10 +499,7 @@ export class AdrastiaUpdater {
             0,
         );
 
-        // Get the latest block number
-        const blockNumber = await this.signer.provider.getBlockNumber();
-        // Get the latest block timestamp
-        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+        const blockTimestamp = await this.getCurrentBlockTimestamp();
 
         return AbiCoder.defaultAbiCoder().encode(
             ["address", "uint", "uint", "uint"],
@@ -1253,10 +1265,7 @@ export class AdrastiaUpdater {
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
         var price = await priceAccumulator["consultPrice(address,uint256)"](token.address as string, 0);
 
-        // Get the latest block number
-        const blockNumber = await this.signer.provider.getBlockNumber();
-        // Get the latest block timestamp
-        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+        const blockTimestamp = await this.getCurrentBlockTimestamp();
 
         if (token.validation !== undefined && token.validation?.disabled !== true) {
             const validation = await this.validatePrice(priceAccumulator, price, token);
@@ -1643,10 +1652,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
     }
 
     async generatePaUpdateData(priceAccumulator: PriceAccumulator, token: TokenConfig, checkUpdateData: string) {
-        // Get the latest block number
-        const blockNumber = await this.signer.provider.getBlockNumber();
-        // Get the latest block timestamp
-        const blockTimestamp = await this.signer.provider.getBlock(blockNumber).then((block) => block.timestamp);
+        const blockTimestamp = await this.getCurrentBlockTimestamp();
         // Encode the timestamp
         const encodedTimestamp = AbiCoder.defaultAbiCoder().encode(["uint"], [blockTimestamp]);
         // Concatenate the checkUpdateData and the timestamp
