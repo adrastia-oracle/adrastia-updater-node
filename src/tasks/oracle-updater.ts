@@ -463,7 +463,7 @@ export class AdrastiaUpdater {
             return;
         }
 
-        this.logger.info("Resetting update delay for contract: " + contractAddress + " (token: " + token + ")");
+        this.logger.debug("Resetting update delay for contract: " + contractAddress + " (token: " + token + ")");
 
         const storeKey = this.chain + "." + contractAddress + "." + token + ".updateNeededSince";
 
