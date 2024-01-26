@@ -18,7 +18,8 @@ class CustomJournaldTransport extends WinstonJournald {
 
             // Handle the error object
             const errorInfo = {
-                ...info,
+                // Expansion disabled because of an unresolved issue: `TypeError: Converting circular structure to JSON`
+                // ...info,
                 message: message,
                 stack: info.stack,
                 level: (info as any).level,
@@ -31,10 +32,42 @@ class CustomJournaldTransport extends WinstonJournald {
                 }
             });
 
-            super.log(errorInfo, callback);
+            try {
+                super.log(errorInfo, callback);
+            } catch (e) {
+                console.error("Error while logging error: ", e);
+
+                try {
+                    // If the log function fails, it might not call the callback function. This can cause the logger
+                    // to hang. So, we call the callback function ourselves to prevent this.
+                    callback();
+                } catch (e) {
+                    if (e.message === "Callback called multiple times") {
+                        // Ignore this error
+                    } else {
+                        console.error("Error while calling callback function: ", e);
+                    }
+                }
+            }
         } else {
             // For non-error logs, use the default behavior
-            super.log(info, callback);
+            try {
+                super.log(info, callback);
+            } catch (e) {
+                console.error("Error while logging: ", e);
+
+                try {
+                    // If the log function fails, it might not call the callback function. This can cause the logger
+                    // to hang. So, we call the callback function ourselves to prevent this.
+                    callback();
+                } catch (e) {
+                    if (e.message === "Callback called multiple times") {
+                        // Ignore this error
+                    } else {
+                        console.error("Error while calling callback function: ", e);
+                    }
+                }
+            }
         }
     }
 }
