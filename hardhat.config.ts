@@ -98,6 +98,18 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         true,
     )
     .setAction(async (taskArgs, hre) => {
+        process.on("uncaughtException", (err) => {
+            // Use console.error just in case the logger is the cause of the exception
+            console.error("Uncaught exception:", err);
+            process.exit(1);
+        });
+
+        process.on("unhandledRejection", (err) => {
+            // Use console.error just in case the logger is the cause of the exception
+            console.error("Unhandled rejection:", err);
+            process.exit(1);
+        });
+
         initializeLogging(taskArgs.service, "adrastia-oracle-updater", "info");
 
         const logger = getLogger();
