@@ -1,6 +1,7 @@
 import { config as winstonConfig, createLogger, format, transports } from "winston";
 import { INFO } from "./log-levels";
 import { default as WinstonJournald } from "winston-journald3";
+import { LEVEL, MESSAGE } from "triple-beam";
 
 var logger = undefined;
 
@@ -23,6 +24,8 @@ class CustomJournaldTransport extends WinstonJournald {
                 message: message,
                 stack: info.stack,
                 level: (info as any).level,
+                [LEVEL]: (info as any)[LEVEL],
+                [MESSAGE]: (info as any)[MESSAGE],
             };
 
             // Remove properties that start with an underscore
