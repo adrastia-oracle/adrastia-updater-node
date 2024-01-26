@@ -30,6 +30,7 @@
         "ethers": "^6.8.1",
         "redis": "^4.6.11",
         "sd-notify": "^2.8.0",
+        "triple-beam": "^1.4.1",
         "winston": "^3.11.0",
         "winston-journald3": "^0.1.2"
     },
