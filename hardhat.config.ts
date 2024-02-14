@@ -569,6 +569,18 @@ const config: HardhatUserConfig = {
                     DEFAULT_ACCOUNT_COUNT,
             },
         },
+        mantaPacific: {
+            url: process.env.MANTAPACIFIC_URL ?? "",
+            accounts: {
+                mnemonic: process.env.MANTAPACIFIC_MNEMONIC ?? "",
+                path: process.env.MANTAPACIFIC_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.MANTAPACIFIC_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.MANTAPACIFIC_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+        },
     },
 };
 
