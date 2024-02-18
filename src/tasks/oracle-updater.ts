@@ -171,7 +171,6 @@ export class AdrastiaUpdater {
 
     uptimeAxiosInstance: AxiosInstance;
     chainUptimeWebhookUrl: string;
-    chainUptimeWebhookLastSent: number = 0;
 
     proxyConfig?: AxiosProxyConfig;
 
@@ -1357,19 +1356,44 @@ export class AdrastiaUpdater {
         await this.resetUpdateDelay(oracle.target as string, token);
     }
 
+    async getChainUptimeWebhookLastSent(): Promise<number> {
+        this.logger.debug("Getting chain uptime webhook last sent for: " + this.chain);
+
+        const key = this.chain + ".chainUptimeWebhookLastSent";
+
+        const value = await this.store.get(key);
+        if (value !== undefined && value !== null && !isNaN(parseInt(value))) {
+            this.logger.debug("Chain uptime webhook last sent: " + parseInt(value));
+
+            return parseInt(value);
+        }
+
+        this.logger.debug("Chain uptime webhook last sent: 0");
+
+        return 0;
+    }
+
+    async setChainUptimeWebhookLastSent(timestamp: number) {
+        const key = this.chain + ".chainUptimeWebhookLastSent";
+
+        await this.store.put(key, timestamp.toString());
+
+        this.logger.debug("Set chain uptime webhook last sent: " + timestamp);
+    }
+
     async notifyChainUptimeService() {
         if (this.chainUptimeWebhookUrl) {
-            const timeSinceLastNotification = Date.now() - this.chainUptimeWebhookLastSent;
+            const chainUptimeWebhookLastSent = await this.getChainUptimeWebhookLastSent();
+            const currentTime = Date.now();
+            const timeSinceLastNotification = currentTime - chainUptimeWebhookLastSent;
 
-            // Only notify the uptime service every 10 seconds
-            // Note: The timestamp is reset after the batch has been processed since this class is re-created for each
-            // batch.
-            if (timeSinceLastNotification >= 10_000) {
+            // Only notify the uptime service every 30 seconds
+            if (timeSinceLastNotification >= 30_000) {
                 await this.uptimeAxiosInstance.get(this.chainUptimeWebhookUrl);
 
-                this.chainUptimeWebhookLastSent = Date.now();
-
                 this.logger.debug("Notified chain uptime service");
+
+                await this.setChainUptimeWebhookLastSent(currentTime);
             }
         }
     }
