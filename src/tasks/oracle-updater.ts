@@ -1365,7 +1365,7 @@ export class AdrastiaUpdater {
             // Note: The timestamp is reset after the batch has been processed since this class is re-created for each
             // batch.
             if (timeSinceLastNotification >= 10_000) {
-                await this.axiosInstance.get(this.chainUptimeWebhookUrl);
+                await this.uptimeAxiosInstance.get(this.chainUptimeWebhookUrl);
 
                 this.chainUptimeWebhookLastSent = Date.now();
 
