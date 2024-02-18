@@ -51,6 +51,7 @@ export type BatchConfig = {
 export type ChainConfig = {
     txConfig?: TxConfig;
     multicall2Address?: string;
+    uptimeWebhookUrl?: string;
     oracles: OracleConfig[];
     batches?: Record<number, BatchConfig>;
 };

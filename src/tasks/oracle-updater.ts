@@ -169,6 +169,10 @@ export class AdrastiaUpdater {
 
     axiosInstance: AxiosInstance;
 
+    uptimeAxiosInstance: AxiosInstance;
+    chainUptimeWebhookUrl: string;
+    chainUptimeWebhookLastSent: number = 0;
+
     proxyConfig?: AxiosProxyConfig;
 
     logger: Logger;
@@ -185,6 +189,7 @@ export class AdrastiaUpdater {
         httpCacheSeconds: number,
         proxyConfig?: AxiosProxyConfig,
         multicall2Address?: string,
+        chainUptimeWebhookUrl?: string,
     ) {
         this.logger = getLogger();
 
@@ -218,6 +223,11 @@ export class AdrastiaUpdater {
         this.axiosInstance = axios.create({
             adapter: axiosCache.adapter,
         });
+
+        this.uptimeAxiosInstance = axios.create({
+            timeout: 2000, // timeout after 2 seconds
+        });
+        this.chainUptimeWebhookUrl = chainUptimeWebhookUrl;
 
         axiosRetry(this.axiosInstance, {
             retries: 3,
@@ -1347,6 +1357,23 @@ export class AdrastiaUpdater {
         await this.resetUpdateDelay(oracle.target as string, token);
     }
 
+    async notifyChainUptimeService() {
+        if (this.chainUptimeWebhookUrl) {
+            const timeSinceLastNotification = Date.now() - this.chainUptimeWebhookLastSent;
+
+            // Only notify the uptime service every 10 seconds
+            // Note: The timestamp is reset after the batch has been processed since this class is re-created for each
+            // batch.
+            if (timeSinceLastNotification >= 10_000) {
+                await this.axiosInstance.get(this.chainUptimeWebhookUrl);
+
+                this.chainUptimeWebhookLastSent = Date.now();
+
+                this.logger.debug("Notified chain uptime service");
+            }
+        }
+    }
+
     async discoverWorkItems(oracleAddress: string, token: TokenConfig, txConfig: TxConfig): Promise<List<WorkItem>> {
         const workItems: List<WorkItem> = new LinkedList<WorkItem>();
 
@@ -1438,6 +1465,13 @@ export class AdrastiaUpdater {
 
         if (results.length != workItems.size()) {
             throw new Error("Multicall2 returned " + results.length + " results, expected " + workItems.size());
+        }
+
+        // Notify the uptime service that we're able to read from the chain
+        try {
+            await this.notifyChainUptimeService();
+        } catch (e) {
+            this.logger.warning("Error notifying uptime service: " + e.message);
         }
 
         // Process results
@@ -1590,6 +1624,14 @@ export class AdrastiaUpdater {
                         );
 
                         await this.processWorkItem(workItem);
+
+                        // Process work item doesn't catch exceptions, so if we get here, we can assume we're able to
+                        // read from the chain. Let's notify the chain uptime service.
+                        try {
+                            await this.notifyChainUptimeService();
+                        } catch (e) {
+                            this.logger.warning("Error notifying uptime service: " + e.message);
+                        }
                     } catch (e) {
                         this.logger.error(e);
                     }
@@ -1806,6 +1848,7 @@ export async function run(
             config.httpCacheSeconds,
             proxyConfig,
             config.chains[chain].multicall2Address,
+            config.chains[chain].uptimeWebhookUrl,
         );
     } else if (type == "aci-address") {
         updater = new AdrastiaAciUpdater(
@@ -1818,6 +1861,7 @@ export async function run(
             config.httpCacheSeconds,
             proxyConfig,
             config.chains[chain].multicall2Address,
+            config.chains[chain].uptimeWebhookUrl,
         );
     } else if (type == "dex") {
         updater = new AdrastiaUpdater(
@@ -1830,6 +1874,7 @@ export async function run(
             config.httpCacheSeconds,
             proxyConfig,
             config.chains[chain].multicall2Address,
+            config.chains[chain].uptimeWebhookUrl,
         );
     } else {
         throw new Error("Invalid updater type: " + type);
