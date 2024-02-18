@@ -224,7 +224,7 @@ export class AdrastiaUpdater {
         });
 
         this.uptimeAxiosInstance = axios.create({
-            timeout: 2000, // timeout after 2 seconds
+            timeout: 5000, // timeout after 5 seconds
         });
         this.chainUptimeWebhookUrl = chainUptimeWebhookUrl;
 
