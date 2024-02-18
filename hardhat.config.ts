@@ -97,6 +97,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         types.int,
         true,
     )
+    .addParam("logLevel", "The log level to use.", "info", types.string, true)
     .setAction(async (taskArgs, hre) => {
         process.on("uncaughtException", (err) => {
             // Use console.error just in case the logger is the cause of the exception
@@ -110,7 +111,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             process.exit(1);
         });
 
-        initializeLogging(taskArgs.service, "adrastia-oracle-updater", "info");
+        initializeLogging(taskArgs.service, "adrastia-oracle-updater", taskArgs.logLevel || "info");
 
         const logger = getLogger();
 
