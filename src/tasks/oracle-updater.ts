@@ -1389,11 +1389,26 @@ export class AdrastiaUpdater {
 
             // Only notify the uptime service every 30 seconds
             if (timeSinceLastNotification >= 30_000) {
-                await this.uptimeAxiosInstance.get(this.chainUptimeWebhookUrl);
-
-                this.logger.debug("Notified chain uptime service");
-
+                // Update the last sent time to limit race conditions
                 await this.setChainUptimeWebhookLastSent(currentTime);
+
+                try {
+                    await this.uptimeAxiosInstance.get(this.chainUptimeWebhookUrl);
+
+                    this.logger.debug("Notified chain uptime service");
+
+                    await this.setChainUptimeWebhookLastSent(currentTime);
+                } catch (e) {
+                    this.logger.warning("Error notifying uptime service: " + e.message);
+
+                    // Check if the last sent time is still the same as when we set it. If not, some other process
+                    // has already updated it, so we don't need to do anything.
+                    const currentChainUptimeWebhookLastSent = await this.getChainUptimeWebhookLastSent();
+                    if (currentChainUptimeWebhookLastSent === currentTime) {
+                        // Reset the last sent time so we can try again
+                        await this.setChainUptimeWebhookLastSent(chainUptimeWebhookLastSent);
+                    }
+                }
             }
         }
     }
