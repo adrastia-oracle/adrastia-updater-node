@@ -109,6 +109,11 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         });
         try {
             await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
+
+            this.logger.log(
+                NOTICE,
+                "Dropped transaction with nonce " + tx.nonce + " and replaced it with: " + replacementTx.hash,
+            );
         } catch (e) {
             if (e.message === "Timeout") {
                 this.logger.log(NOTICE, "Drop transaction timed out. Trying again...");
@@ -138,7 +143,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             await Timeout.wrap(tx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
 
-            this.logger.info("Transaction mined: " + tx.hash);
+            this.logger.log(NOTICE, "Transaction mined: " + tx.hash);
 
             if (confirmationsRequired > 1) {
                 this.logger.info("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
