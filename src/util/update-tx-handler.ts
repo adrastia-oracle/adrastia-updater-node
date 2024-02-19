@@ -133,6 +133,8 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             return;
         }
 
+        const sendTime = Date.now();
+
         try {
             this.logger.info(
                 "Waiting up to " +
@@ -143,7 +145,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             await Timeout.wrap(tx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
 
-            this.logger.log(NOTICE, "Transaction mined: " + tx.hash);
+            const timeToMine = Date.now() - sendTime;
+
+            this.logger.log(NOTICE, "Transaction mined in " + timeToMine + "ms: " + tx.hash);
 
             if (confirmationsRequired > 1) {
                 this.logger.info("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
@@ -164,6 +168,12 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
                 await this.dropTransaction(tx, signer);
             } else {
+                if (e.message === "transaction execution reverted") {
+                    const timeToRevert = Date.now() - sendTime;
+
+                    this.logger.log(NOTICE, "Transaction reverted in " + timeToRevert + "ms: " + tx.hash);
+                }
+
                 this.logger.error("Error waiting for transaction " + tx.hash + ":", e);
             }
         }
