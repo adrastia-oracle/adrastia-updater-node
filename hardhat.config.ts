@@ -36,6 +36,28 @@ function parseIntOrUndefined(value: string | undefined): number | undefined {
     return parseInt(value);
 }
 
+function clearSecretsFromEnv() {
+    var keysToDelete = [];
+
+    for (const key in process.env) {
+        const keyLc = key.toLowerCase();
+
+        if (
+            keyLc.includes("passphrase") ||
+            keyLc.includes("private_key") ||
+            keyLc.includes("password") ||
+            keyLc.includes("mnemonic")
+        ) {
+            process.env[key] = undefined;
+            keysToDelete.push(key);
+        }
+    }
+
+    for (const key of keysToDelete) {
+        delete process.env[key];
+    }
+}
+
 task("print-network", "Prints the current network config", async (_, hre) => {
     // Clone the network config and remove sensitive and junk information
     var networkConfig = Object.assign({}, hre.network.config);
@@ -110,6 +132,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             console.error("Unhandled rejection:", err);
             process.exit(1);
         });
+
+        clearSecretsFromEnv();
 
         initializeLogging(taskArgs.service, "adrastia-oracle-updater", taskArgs.logLevel || "info");
 
