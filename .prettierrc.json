@@ -2,5 +2,16 @@
     "tabWidth": 4,
     "useTabs": false,
     "endOfLine": "lf",
-    "printWidth": 120
+    "printWidth": 120,
+    "overrides": [
+        {
+            "files": "*.sol",
+            "options": {
+                "useTabs": false,
+                "singleQuote": false,
+                "bracketSpacing": false,
+                "explicitTypes": "always"
+            }
+        }
+    ]
 }
