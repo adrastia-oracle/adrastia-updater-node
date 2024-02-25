@@ -78,14 +78,15 @@ class CustomJournaldTransport extends WinstonJournald {
     }
 }
 
-export function initializeLogging(isService: boolean, identifier: string, level: string = INFO) {
+export function initializeLogging(isService: boolean, serviceName: string, unitName: string, level: string = INFO) {
     const defaultMetadata = {
         instance: hostname(),
-        service: identifier,
+        service: serviceName,
+        unit: unitName,
     };
 
     if (isService) {
-        const journald = new CustomJournaldTransport({ identifier: identifier });
+        const journald = new CustomJournaldTransport({ identifier: serviceName });
         logger = createLogger({
             levels: winstonConfig.syslog.levels,
             level: level,
