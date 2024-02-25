@@ -1,9 +1,11 @@
-import { config as winstonConfig, createLogger, format, transports } from "winston";
+import { config as winstonConfig, createLogger, format, transports, Logger } from "winston";
 import { INFO } from "./log-levels";
 import { default as WinstonJournald } from "winston-journald3";
 import { LEVEL, MESSAGE } from "triple-beam";
+import { Logtail } from "@logtail/node";
+import { LogtailTransport } from "@logtail/winston";
 
-var logger = undefined;
+var logger: Logger | undefined = undefined;
 
 class CustomJournaldTransport extends WinstonJournald {
     log(info, callback) {
@@ -108,6 +110,18 @@ export function initializeLogging(isService: boolean, identifier: string, level:
             transports: [new transports.Console()],
         });
     }
+}
+
+export function setupLogtail(logTailKey: string, level: string = INFO) {
+    const logtail = new Logtail(logTailKey);
+    logger.add(
+        new LogtailTransport(logtail, {
+            format: format.combine(format.errors({ stack: true }), format.timestamp(), format.splat(), format.json()),
+            level: level,
+        }),
+    );
+
+    logger.info("Logtail transport initialized");
 }
 
 export function getLogger() {
