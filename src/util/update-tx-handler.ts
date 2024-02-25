@@ -13,6 +13,8 @@ import {
     ContractTransactionResponse,
     Addressable,
     FeeData,
+    TransactionReceipt,
+    TransactionResponse,
 } from "ethers";
 import { IUpdateable } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
@@ -24,6 +26,7 @@ import { NOTICE } from "../logging/log-levels";
 import { TxConfig } from "../config/adrastia-config";
 
 const ONE_GWEI = BigInt("1000000000");
+const ZERO = BigInt("0");
 
 export interface IUpdateTransactionHandler {
     sendUpdateTx(
@@ -51,7 +54,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         this.logger = getLogger();
     }
 
-    async dropTransaction(tx: ContractTransaction, signer: Signer) {
+    async dropTransaction(tx: ContractTransaction, signer: Signer, dropStartTime: number) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
@@ -108,11 +111,31 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGas: txType === 2 ? maxPriorityFeePerGasToUse : undefined,
         });
         try {
-            await Timeout.wrap(replacementTx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
+            const receiptPromise = replacementTx.wait();
+
+            await Timeout.wrap(receiptPromise, this.updateTxOptions.transactionTimeout, "Timeout");
+
+            const timeToDrop = Date.now() - dropStartTime;
+
+            const receipt = await receiptPromise;
+            const gasData = this.extractGasData(replacementTx, receipt);
 
             this.logger.log(
                 NOTICE,
-                "Dropped transaction with nonce " + tx.nonce + " and replaced it with: " + replacementTx.hash,
+                "Dropped transaction with nonce " +
+                    tx.nonce +
+                    " and replaced it with " +
+                    replacementTx.hash +
+                    " in " +
+                    timeToDrop +
+                    "ms",
+                {
+                    droppedUpdateTx: {
+                        dropped: 1,
+                        timeToDrop: timeToDrop,
+                        ...gasData,
+                    },
+                },
             );
         } catch (e) {
             if (e.message === "Timeout") {
@@ -122,9 +145,31 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 // spamming the RPC node with requests.
                 await signer.provider.removeAllListeners();
 
-                await this.dropTransaction(replacementTx, signer);
+                await this.dropTransaction(replacementTx, signer, dropStartTime);
             }
         }
+    }
+
+    extractGasData(tx: TransactionResponse, receipt: TransactionReceipt | undefined) {
+        const gasPrice: bigint = receipt.gasPrice ?? ZERO;
+        const gasUsed: bigint = receipt.gasUsed ?? ZERO;
+        const gasFee: bigint = receipt.fee ?? ZERO;
+        const gasLimit: bigint = tx.gasLimit ?? ZERO;
+        const sufficientGas = receipt.status == 1 || gasUsed < gasLimit;
+
+        // The total fee in wei can easily surpass MAX_SAFE_INTEGER, so we convert it to a floating point number in gwei
+        const feeInGwei = Number(ethers.formatUnits(gasFee.toString(), "gwei"));
+
+        const gasUsedPercent = (gasUsed * 1000000n) / gasLimit;
+
+        return {
+            gasUsed: Number(gasUsed),
+            gasLimit: Number(gasLimit),
+            gasUsedPercent: Number(gasUsedPercent) / 10000,
+            sufficientGas: sufficientGas ? 1 : 0,
+            gasPrice: Number(gasPrice), // in wei
+            fee: feeInGwei, // in gwei
+        };
     }
 
     async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer) {
@@ -143,11 +188,22 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                     tx.hash,
             );
 
-            await Timeout.wrap(tx.wait(), this.updateTxOptions.transactionTimeout, "Timeout");
+            const txReceiptPromise = tx.wait();
+
+            await Timeout.wrap(txReceiptPromise, this.updateTxOptions.transactionTimeout, "Timeout");
 
             const timeToMine = Date.now() - sendTime;
 
-            this.logger.log(NOTICE, "Transaction mined in " + timeToMine + "ms: " + tx.hash);
+            const receipt = await txReceiptPromise;
+            const gasData = this.extractGasData(tx, receipt);
+
+            this.logger.log(NOTICE, "Transaction mined in " + timeToMine + "ms: " + tx.hash, {
+                minedUpdateTx: {
+                    mined: 1,
+                    timeToMine: timeToMine,
+                    ...gasData,
+                },
+            });
 
             if (confirmationsRequired > 1) {
                 this.logger.info("Waiting for " + confirmationsRequired + " confirmations for transaction: " + tx.hash);
@@ -166,12 +222,22 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 // spamming the RPC node with requests.
                 await signer.provider.removeAllListeners();
 
-                await this.dropTransaction(tx, signer);
+                const dropStartTime = Date.now();
+
+                await this.dropTransaction(tx, signer, dropStartTime);
             } else {
-                if (e.message === "transaction execution reverted") {
+                if (e.message?.includes("transaction execution reverted")) {
                     const timeToRevert = Date.now() - sendTime;
 
-                    this.logger.log(NOTICE, "Transaction reverted in " + timeToRevert + "ms: " + tx.hash);
+                    const gasData = this.extractGasData(tx, e.receipt);
+
+                    this.logger.log(NOTICE, "Transaction reverted in " + timeToRevert + "ms: " + tx.hash, {
+                        revertedUpdateTx: {
+                            reverted: 1,
+                            timeToRevert: timeToRevert,
+                            ...gasData,
+                        },
+                    });
                 }
 
                 this.logger.error("Error waiting for transaction " + tx.hash + ":", e);
