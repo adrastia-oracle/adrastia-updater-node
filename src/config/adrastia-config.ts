@@ -43,9 +43,15 @@ export type OracleConfig = {
     tokens: TokenConfig[];
 };
 
+export type BatchLoggingConfig = {
+    sourceToken: string;
+    level: "debug" | "info" | "warn" | "error";
+};
+
 export type BatchConfig = {
     pollingInterval?: number; // In milliseconds. Default: one-shot.
     writeDelay?: number; // In milliseconds. Default: 0.
+    logging?: BatchLoggingConfig;
 };
 
 export type ChainConfig = {
