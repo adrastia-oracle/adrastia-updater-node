@@ -4,6 +4,7 @@ import { default as WinstonJournald } from "winston-journald3";
 import { LEVEL, MESSAGE } from "triple-beam";
 import { Logtail } from "@logtail/node";
 import { LogtailTransport } from "@logtail/winston";
+import { hostname } from "os";
 
 var logger: Logger | undefined = undefined;
 
@@ -78,13 +79,18 @@ class CustomJournaldTransport extends WinstonJournald {
 }
 
 export function initializeLogging(isService: boolean, identifier: string, level: string = INFO) {
+    const defaultMetadata = {
+        instance: hostname(),
+        service: identifier,
+    };
+
     if (isService) {
         const journald = new CustomJournaldTransport({ identifier: identifier });
         logger = createLogger({
             levels: winstonConfig.syslog.levels,
             level: level,
             format: format.combine(format.splat(), format.simple()),
-            defaultMeta: { service: identifier },
+            defaultMeta: defaultMetadata,
             transports: [journald],
         });
     } else {
@@ -106,7 +112,7 @@ export function initializeLogging(isService: boolean, identifier: string, level:
                     return logMessage;
                 }),
             ),
-            defaultMeta: { service: identifier },
+            defaultMeta: defaultMetadata,
             transports: [new transports.Console()],
         });
     }
