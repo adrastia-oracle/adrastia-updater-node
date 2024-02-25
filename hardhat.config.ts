@@ -359,7 +359,7 @@ const config: HardhatUserConfig = {
                 enabled: true,
             },
             mining: {
-                auto: true,
+                auto: false,
                 interval: 2000,
             },
             accounts: process.env.PRIVATE_KEY_UPDATER
