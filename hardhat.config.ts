@@ -12,7 +12,7 @@ import { RedisKeyValueStore } from "./src/util/redis-key-value-store";
 import { IKeyValueStore } from "./src/util/key-value-store";
 import { formatUnits, parseUnits } from "ethers";
 import { AdrastiaConfig, TxConfig } from "./src/config/adrastia-config";
-import { getLogger, initializeLogging } from "./src/logging/logging";
+import { getLogger, initializeLogging, setupLogtail } from "./src/logging/logging";
 
 dotenv.config();
 
@@ -140,6 +140,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         const logger = getLogger();
 
         const adrastiaConfig = require(taskArgs.workerConfig).default as AdrastiaConfig;
+
+        const remoteLogging = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.logging;
+        if (remoteLogging) {
+            setupLogtail(remoteLogging.sourceToken, remoteLogging.level);
+        }
 
         const accounts = await hre.ethers.getSigners();
 
