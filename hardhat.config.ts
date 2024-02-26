@@ -133,6 +133,8 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             process.exit(1);
         });
 
+        const redisPassword = process.env.REDIS_PASSWORD;
+
         clearSecretsFromEnv();
 
         const unitName = "adrastia-" + hre.network.name + "-" + taskArgs.batch;
@@ -165,7 +167,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             logger.info("Creating Redis client...");
 
             const redisUsername = process.env.REDIS_USERNAME || "";
-            const redisPasswordBlob = process.env.REDIS_PASSWORD ? ":" + process.env.REDIS_PASSWORD : "";
+            const redisPasswordBlob = redisPassword ? ":" + redisPassword : "";
             const redisHost = process.env.REDIS_HOST || "127.0.0.1";
             const redisPort = process.env.REDIS_PORT || "6379";
             const redisDatabase = process.env.REDIS_DATABASE || "0";
