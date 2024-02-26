@@ -80,10 +80,13 @@ class CustomJournaldTransport extends WinstonJournald {
 }
 
 export function initializeLogging(isService: boolean, serviceName: string, unitName: string, level: string = INFO) {
+    const environment = process.env.NODE_ENV || "development";
+
     const defaultMetadata = {
         instance: hostname(),
         service: serviceName,
         unit: unitName,
+        environment: environment,
     };
 
     if (isService) {
