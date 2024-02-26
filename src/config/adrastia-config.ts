@@ -44,8 +44,10 @@ export type OracleConfig = {
 };
 
 export type BatchLoggingConfig = {
+    type: "logtail" | "datadog";
     sourceToken: string;
     level: "debug" | "info" | "warn" | "error";
+    region?: string;
 };
 
 export type BatchConfig = {
