@@ -134,6 +134,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         });
 
         const redisPassword = process.env.REDIS_PASSWORD;
+        const proxyPassword = process.env.PROXY_PASSWORD;
 
         clearSecretsFromEnv();
 
@@ -264,10 +265,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                 host: process.env.PROXY_HOST,
                 port: parseInt(process.env.PROXY_PORT),
                 auth:
-                    process.env.PROXY_USERNAME || process.env.PROXY_PASSWORD
+                    process.env.PROXY_USERNAME || proxyPassword
                         ? {
                               username: process.env.PROXY_USERNAME ?? "",
-                              password: process.env.PROXY_PASSWORD ?? "",
+                              password: proxyPassword ?? "",
                           }
                         : undefined,
             };
