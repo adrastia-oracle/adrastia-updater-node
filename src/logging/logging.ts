@@ -5,6 +5,7 @@ import { LEVEL, MESSAGE } from "triple-beam";
 import { Logtail } from "@logtail/node";
 import { LogtailTransport } from "@logtail/winston";
 import { hostname } from "os";
+import { Http } from "winston/lib/winston/transports";
 
 var logger: Logger | undefined = undefined;
 
@@ -129,6 +130,27 @@ export function setupLogtail(logTailKey: string, level: string = INFO) {
     );
 
     logger.info("Logtail transport initialized");
+}
+
+export function setupDatadog(apiKey: string, region: string, level: string = INFO) {
+    const httpTransportOptions = {
+        host: "http-intake.logs." + region + ".datadoghq.com",
+        path: "/api/v2/logs?dd-api-key=" + apiKey + "&ddsource=nodejs",
+        ssl: true,
+    };
+
+    logger.add(
+        new Http({
+            format: format.combine(format.errors({ stack: true }), format.timestamp(), format.splat(), format.json()),
+            level: level,
+            batch: true,
+            batchInterval: 5000,
+            batchCount: 10,
+            ...httpTransportOptions,
+        }),
+    );
+
+    logger.info("Datadog transport initialized");
 }
 
 export function getLogger() {
