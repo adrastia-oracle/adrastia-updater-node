@@ -79,7 +79,13 @@ class CustomJournaldTransport extends WinstonJournald {
     }
 }
 
-export function initializeLogging(isService: boolean, serviceName: string, unitName: string, level: string = INFO) {
+export function initializeLogging(
+    isService: boolean,
+    serviceName: string,
+    unitName: string,
+    chainName: string,
+    level: string = INFO,
+) {
     const environment = process.env.NODE_ENV || "development";
 
     const defaultMetadata = {
@@ -87,6 +93,7 @@ export function initializeLogging(isService: boolean, serviceName: string, unitN
         service: serviceName,
         unit: unitName,
         environment: environment,
+        chain: chainName,
     };
 
     if (isService) {

@@ -140,7 +140,13 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const unitName = "adrastia-" + hre.network.name + "-" + taskArgs.batch;
 
-        initializeLogging(taskArgs.service, "adrastia-oracle-updater", unitName, taskArgs.logLevel || "info");
+        initializeLogging(
+            taskArgs.service,
+            "adrastia-oracle-updater",
+            unitName,
+            hre.network.name,
+            taskArgs.logLevel || "info",
+        );
 
         const logger = getLogger();
 
