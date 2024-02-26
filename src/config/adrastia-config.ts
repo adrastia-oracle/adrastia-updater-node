@@ -54,6 +54,7 @@ export type BatchConfig = {
     pollingInterval?: number; // In milliseconds. Default: one-shot.
     writeDelay?: number; // In milliseconds. Default: 0.
     logging?: BatchLoggingConfig;
+    customerId?: string;
 };
 
 export type ChainConfig = {

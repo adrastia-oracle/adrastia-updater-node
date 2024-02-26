@@ -152,7 +152,12 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         const adrastiaConfig = require(taskArgs.workerConfig).default as AdrastiaConfig;
 
-        const remoteLogging = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.logging;
+        const chainConfig = adrastiaConfig.chains[hre.network.name];
+        const batchConfig = chainConfig.batches?.[taskArgs.batch];
+
+        logger.defaultMeta["customerId"] = batchConfig?.customerId;
+
+        const remoteLogging = batchConfig?.logging;
         if (remoteLogging) {
             if (remoteLogging.type === "logtail") {
                 setupLogtail(remoteLogging.sourceToken, remoteLogging.level);
@@ -281,7 +286,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         }
 
         // Extract polling interval (measured in ms)
-        var pollingInterval = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.pollingInterval;
+        var pollingInterval = batchConfig?.pollingInterval;
         if (pollingInterval === undefined && taskArgs.every !== undefined) {
             pollingInterval = taskArgs.every * 1000; // Convert seconds to ms
         }
@@ -290,7 +295,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             pollingInterval = 0;
         }
         // Extract write delay (measured in seconds)
-        var writeDelay = adrastiaConfig.chains[hre.network.name].batches?.[taskArgs.batch]?.writeDelay;
+        var writeDelay = batchConfig?.writeDelay;
         if (writeDelay !== undefined) {
             writeDelay /= 1000; // Convert ms to seconds
         }
