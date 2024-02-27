@@ -247,7 +247,7 @@ export class AdrastiaUpdater {
         let las: LiquidityAccumulator[] = [];
         let pas: PriceAccumulator[] = [];
 
-        this.logger.info("Discovering accumulators for oracle: " + oracleAddress);
+        this.logger.debug("Getting accumulators for oracle: " + oracleAddress);
 
         const lasStoreKey = this.chain + "." + oracleAddress + "." + token + ".las";
         const pasStoreKey = this.chain + "." + oracleAddress + "." + token + ".pas";
@@ -276,7 +276,7 @@ export class AdrastiaUpdater {
 
                 las.push(accumulator);
 
-                this.logger.info("Added liquidity accumulator from store: " + accumulatorAddress);
+                this.logger.debug("Added liquidity accumulator from store: " + accumulatorAddress);
             }
 
             for (const accumulatorAddress of paAddresses) {
@@ -290,7 +290,7 @@ export class AdrastiaUpdater {
 
                 pas.push(accumulator);
 
-                this.logger.info("Added price accumulator from store: " + accumulatorAddress);
+                this.logger.debug("Added price accumulator from store: " + accumulatorAddress);
             }
 
             return {
@@ -302,6 +302,8 @@ export class AdrastiaUpdater {
             await this.store.del(lasStoreKey);
             await this.store.del(pasStoreKey);
         }
+
+        this.logger.info("Discovering accumulators for oracle: " + oracleAddress);
 
         // Assume the oracle implements IERC165
         const erc165: IERC165 = new ethers.Contract(oracleAddress, IERC165_ABI, this.signer) as unknown as IERC165;
