@@ -156,6 +156,7 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         const batchConfig = chainConfig.batches?.[taskArgs.batch];
 
         logger.defaultMeta["customerId"] = batchConfig?.customerId;
+        logger.defaultMeta["batchId"] = batchConfig?.batchId;
 
         const remoteLogging = batchConfig?.logging;
         if (remoteLogging) {

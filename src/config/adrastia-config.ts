@@ -55,6 +55,7 @@ export type BatchConfig = {
     writeDelay?: number; // In milliseconds. Default: 0.
     logging?: BatchLoggingConfig;
     customerId?: string;
+    batchId?: string;
 };
 
 export type ChainConfig = {
