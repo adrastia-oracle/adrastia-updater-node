@@ -149,7 +149,13 @@ type WorkItem = {
     type: "aci" | "price-accumulator" | "liquidity-accumulator" | "oracle";
     checkCall: Multicall2Call;
     needsWork?: boolean;
+    checkedBlockNumber?: bigint;
     txConfig: TxConfig;
+};
+
+type CheckWorkItemsResult = {
+    amountOfWork: number;
+    blockNumber: bigint;
 };
 
 export class AdrastiaUpdater {
@@ -1493,7 +1499,7 @@ export class AdrastiaUpdater {
         }
     }
 
-    async checkWorkItems(workItems: List<WorkItem>): Promise<number> {
+    async checkWorkItems(workItems: List<WorkItem>): Promise<CheckWorkItemsResult> {
         var calls: Multicall2Call[] = [];
 
         // Collect calls
@@ -1502,7 +1508,9 @@ export class AdrastiaUpdater {
         }
 
         // Execute calls
-        const results = await this.multicall2.tryAggregate.staticCall(false, calls);
+        const blockDataAndResults = await this.multicall2.tryBlockAndAggregate.staticCall(false, calls);
+        const blockNumber = blockDataAndResults.blockNumber;
+        const results = blockDataAndResults.returnData;
 
         if (results.length != workItems.size()) {
             throw new Error("Multicall2 returned " + results.length + " results, expected " + workItems.size());
@@ -1520,6 +1528,8 @@ export class AdrastiaUpdater {
         var amountOfWork = 0;
         for (const workItem of workItems) {
             try {
+                workItem.checkedBlockNumber = blockNumber;
+
                 if (results[i].success) {
                     // Call was successful (did not revert), so we can process the result
                     await this.processCheckWorkItemResult(workItem, results[i].returnData);
@@ -1527,14 +1537,15 @@ export class AdrastiaUpdater {
                     if (workItem.needsWork) {
                         ++amountOfWork;
 
-                        this.logger.info(
+                        this.logger.notice(
                             "Work item needs work: " +
                                 workItem.address +
                                 "." +
                                 workItem.token.address +
                                 " (" +
                                 workItem.type +
-                                ")",
+                                ") at block " +
+                                blockNumber?.toString(),
                         );
                     } else {
                         // No work needed, so we can reset the update delay
@@ -1548,7 +1559,10 @@ export class AdrastiaUpdater {
             }
         }
 
-        return amountOfWork;
+        return {
+            amountOfWork: amountOfWork,
+            blockNumber: blockNumber,
+        };
     }
 
     async processWorkItem(workItem: WorkItem) {
@@ -1633,20 +1647,41 @@ export class AdrastiaUpdater {
             }
         }
 
-        this.logger.info("Found " + workItems.size() + " work items");
+        const numWorkItems = workItems.size();
+        this.logger.info("Found " + numWorkItems + " work items");
 
-        var amountOfWork = workItems.size();
+        var amountOfWork = numWorkItems;
 
         if (this.multicall2 !== undefined && !this.dryRun) {
             // Check work items using multicall2
-            amountOfWork = await this.checkWorkItems(workItems);
+            const checkResult = await this.checkWorkItems(workItems);
+            amountOfWork = checkResult.amountOfWork;
 
-            this.logger.info("Found " + amountOfWork + " work items that need work");
+            var logLevel = "info";
+            if (amountOfWork > 0) {
+                logLevel = "notice";
+            }
+
+            this.logger.log(
+                logLevel,
+                "Found " + amountOfWork + " work items that need work at block " + checkResult.blockNumber?.toString(),
+                {
+                    workItemDiscovery: {
+                        numChecked: numWorkItems,
+                        numNeedsWork: amountOfWork,
+                        blockNumber: Number(checkResult.blockNumber),
+                    },
+                },
+            );
         } else {
-            // Multicall2 not supported, so we need to check each work item individually
+            // Multicall2 not supported
+
+            // We need to check each work item individually
             for (const workItem of workItems) {
                 workItem.needsWork = true;
             }
+
+            this.logger.warn("Multicall2 not supported. Checking work items individually.");
         }
 
         if (amountOfWork > 0) {
