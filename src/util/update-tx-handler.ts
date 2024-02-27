@@ -54,7 +54,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         this.logger = getLogger();
     }
 
-    async dropTransaction(tx: ContractTransaction, signer: Signer, dropStartTime: number) {
+    async dropTransaction(tx: ContractTransaction, signer: Signer, dropStartTime: number, options?: TxConfig) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
@@ -97,7 +97,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 ethers.formatUnits(gasPriceToUse, "gwei"),
         );
 
-        const txType = this.updateTxOptions.txType ?? 0;
+        const txType = options.txType ?? this.updateTxOptions.txType ?? 0;
 
         // Transfer 0 ether to self to drop and replace the transaction
         const replacementTx = await signer.sendTransaction({
@@ -113,7 +113,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         try {
             const receiptPromise = replacementTx.wait();
 
-            await Timeout.wrap(receiptPromise, this.updateTxOptions.transactionTimeout, "Timeout");
+            const transactionTimeout = options.transactionTimeout ?? this.updateTxOptions.transactionTimeout ?? 60000;
+
+            await Timeout.wrap(receiptPromise, transactionTimeout, "Timeout");
 
             const timeToDrop = Date.now() - dropStartTime;
 
@@ -145,7 +147,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 // spamming the RPC node with requests.
                 await signer.provider.removeAllListeners();
 
-                await this.dropTransaction(replacementTx, signer, dropStartTime);
+                await this.dropTransaction(replacementTx, signer, dropStartTime, options);
             }
         }
     }
@@ -172,8 +174,8 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         };
     }
 
-    async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer) {
-        const confirmationsRequired = this.updateTxOptions.waitForConfirmations ?? 5;
+    async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer, options?: TxConfig) {
+        const confirmationsRequired = options.waitForConfirmations ?? this.updateTxOptions.waitForConfirmations ?? 5;
         if (confirmationsRequired === 0) {
             return;
         }
@@ -181,16 +183,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         const sendTime = Date.now();
 
         try {
-            this.logger.info(
-                "Waiting up to " +
-                    this.updateTxOptions.transactionTimeout +
-                    "ms for transaction to be mined: " +
-                    tx.hash,
-            );
+            const transactionTimeout = options.transactionTimeout ?? this.updateTxOptions.transactionTimeout ?? 60000;
+
+            this.logger.info("Waiting up to " + transactionTimeout + "ms for transaction to be mined: " + tx.hash);
 
             const txReceiptPromise = tx.wait();
 
-            await Timeout.wrap(txReceiptPromise, this.updateTxOptions.transactionTimeout, "Timeout");
+            await Timeout.wrap(txReceiptPromise, transactionTimeout, "Timeout");
 
             const timeToMine = Date.now() - sendTime;
 
@@ -224,7 +223,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
                 const dropStartTime = Date.now();
 
-                await this.dropTransaction(tx, signer, dropStartTime);
+                await this.dropTransaction(tx, signer, dropStartTime, options);
             } else {
                 if (e.message?.includes("transaction execution reverted")) {
                     const timeToRevert = Date.now() - sendTime;
@@ -346,7 +345,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
         this.logger.log(NOTICE, "Sent update transaction (tx type " + txType + "): " + tx.hash);
 
-        await this.handleUpdateTx(tx, signer);
+        await this.handleUpdateTx(tx, signer, options);
     }
 }
 
