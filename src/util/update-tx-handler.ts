@@ -239,7 +239,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                     });
                 }
 
-                this.logger.error("Error waiting for transaction " + tx.hash + ":", e);
+                this.logger.error("Error waiting for transaction " + tx.hash + ".", { error: e });
             }
         }
     }

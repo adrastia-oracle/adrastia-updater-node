@@ -217,7 +217,7 @@ export class AdrastiaUpdater {
             },
             // Attempt reading stale cache data when we're being rate limited
             readOnError: (error, request) => {
-                loggerCopy.error(error);
+                loggerCopy.error("Axios error occurred.", { error: error });
                 return error.response.status == 429 /* back-off warning */ || error.response.status == 418 /* IP ban */;
             },
             // Deactivate `clearOnStale` option so that we can actually read stale cache data
@@ -404,7 +404,7 @@ export class AdrastiaUpdater {
             await this.store.put(lasStoreKey, lasToStore);
             await this.store.put(pasStoreKey, pasToStore);
         } catch (e) {
-            this.logger.error(e);
+            this.logger.error("Error storing accumulator addresses.", { error: e });
         }
 
         return {
@@ -1200,7 +1200,7 @@ export class AdrastiaUpdater {
                     throw new Error("Unknown source type: " + source.type);
                 }
             } catch (e) {
-                this.logger.error("Error fetching price from source '" + source.type + "': " + e.message);
+                this.logger.error("Error fetching price from source '" + source.type + "': " + e.message, { error: e });
             }
 
             if (hasPrice) {
@@ -1255,7 +1255,7 @@ export class AdrastiaUpdater {
                 usePrice = accumulatorPrice;
             }
         } catch (e) {
-            this.logger.error(e);
+            this.logger.error("Error validating prices.", { error: e });
         }
 
         if (!validated) {
@@ -1407,7 +1407,7 @@ export class AdrastiaUpdater {
 
                     await this.setChainUptimeWebhookLastSent(currentTime);
                 } catch (e) {
-                    this.logger.warning("Error notifying uptime service: " + e.message);
+                    this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
 
                     // Check if the last sent time is still the same as when we set it. If not, some other process
                     // has already updated it, so we don't need to do anything.
@@ -1520,7 +1520,7 @@ export class AdrastiaUpdater {
         try {
             await this.notifyChainUptimeService();
         } catch (e) {
-            this.logger.warning("Error notifying uptime service: " + e.message);
+            this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
         }
 
         // Process results
@@ -1553,7 +1553,7 @@ export class AdrastiaUpdater {
                     }
                 }
             } catch (e) {
-                this.logger.error(e);
+                this.logger.error("Error checking work items.", { error: e });
             } finally {
                 ++i;
             }
@@ -1706,10 +1706,19 @@ export class AdrastiaUpdater {
                         try {
                             await this.notifyChainUptimeService();
                         } catch (e) {
-                            this.logger.warning("Error notifying uptime service: " + e.message);
+                            this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
                         }
                     } catch (e) {
-                        this.logger.error(e);
+                        this.logger.error(
+                            "Error processing work item: " +
+                                workItem.address +
+                                "." +
+                                workItem.token.address +
+                                " (" +
+                                workItem.type +
+                                ")",
+                            { error: e },
+                        );
                     }
                 }
             }

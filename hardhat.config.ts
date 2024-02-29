@@ -201,7 +201,9 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             });
 
             redisClient.on("error", function (error) {
-                logger.error("Redis error:", error);
+                logger.error("Redis error:", {
+                    error: error,
+                });
             });
 
             redisClient.on("connect", function () {
@@ -365,7 +367,9 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
                     proxyConfig,
                 );
             } catch (e) {
-                logger.error(e);
+                logger.error("Error running the oracle updater", {
+                    error: e,
+                });
             }
 
             if (pollingInterval > 0) {
