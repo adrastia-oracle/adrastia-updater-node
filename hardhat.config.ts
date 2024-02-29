@@ -314,27 +314,27 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             notify.ready();
         }
 
-        logger.info("Starting the oracle updater with the following parameters:");
-        logger.info(`  - workerConfig: ${taskArgs.workerConfig}`);
-        logger.info(`  - batch: ${taskArgs.batch}`);
-        logger.info(`  - pollingInterval: ${pollingInterval}ms`);
-        logger.info(`  - dryRun: ${taskArgs.dryRun}`);
-        logger.info(`  - numConfirmations: ${numConfirmations}`);
-        logger.info(`  - txType: ${txType}`);
-        logger.info(`  - delay: ${writeDelay}ms`);
-        logger.info(`  - service: ${taskArgs.service}`);
-        logger.info(`  - type: ${taskArgs.type}`);
+        logger.debug("Starting the oracle updater with the following parameters:");
+        logger.debug(`  - workerConfig: ${taskArgs.workerConfig}`);
+        logger.debug(`  - batch: ${taskArgs.batch}`);
+        logger.debug(`  - pollingInterval: ${pollingInterval}ms`);
+        logger.debug(`  - dryRun: ${taskArgs.dryRun}`);
+        logger.debug(`  - numConfirmations: ${numConfirmations}`);
+        logger.debug(`  - txType: ${txType}`);
+        logger.debug(`  - delay: ${writeDelay}ms`);
+        logger.debug(`  - service: ${taskArgs.service}`);
+        logger.debug(`  - type: ${taskArgs.type}`);
 
         if (taskArgs.gasPriceMultiplier !== undefined) {
-            logger.info(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
+            logger.debug(`  - gasPriceMultiplier: ${gasPriceMultiplierDividend / gasPriceMultiplierDivisor}`);
         }
 
         if (maxGasPrice !== undefined) {
-            logger.info(`  - maxGasPrice: ${formatUnits(maxGasPrice, "gwei")} gwei`);
+            logger.debug(`  - maxGasPrice: ${formatUnits(maxGasPrice, "gwei")} gwei`);
         }
 
         if (proxyConfig !== undefined) {
-            logger.info(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
+            logger.debug(`  - proxy: ${proxyConfig.auth?.username}@${proxyConfig.host}:${proxyConfig.port}`);
         }
 
         var timesRepeated = 0;
