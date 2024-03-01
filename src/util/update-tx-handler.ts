@@ -153,11 +153,22 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     }
 
     extractGasData(tx: TransactionResponse, receipt: TransactionReceipt | undefined) {
-        const gasPrice: bigint = receipt.gasPrice ?? ZERO;
+        var gasPrice: bigint = receipt.gasPrice ?? ZERO;
         const gasUsed: bigint = receipt.gasUsed ?? ZERO;
-        const gasFee: bigint = receipt.fee ?? ZERO;
+        var gasFee: bigint = receipt.fee ?? ZERO;
         const gasLimit: bigint = tx.gasLimit ?? ZERO;
         const sufficientGas = receipt.status == 1 || gasUsed < gasLimit;
+
+        if (gasPrice === ZERO) {
+            // If the gas price is not in the receipt, we take it from the transaction response
+            // This occurance has been seen with Rootstock RPC providers
+            gasPrice = tx.gasPrice ?? ZERO;
+        }
+        if (gasFee === ZERO) {
+            // If the gas fee is not in the receipt, we calculate it from the gas price and gas used
+            // This occurance has been seen with Rootstock RPC providers
+            gasFee = gasPrice * gasUsed;
+        }
 
         // The total fee in wei can easily surpass MAX_SAFE_INTEGER, so we convert it to a floating point number in gwei
         const feeInGwei = Number(ethers.formatUnits(gasFee.toString(), "gwei"));
