@@ -297,13 +297,10 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         if (pollingInterval === undefined) {
             pollingInterval = 0;
         }
-        // Extract write delay (measured in seconds)
+        // Extract write delay (measured in ms)
         var writeDelay = batchConfig?.writeDelay;
-        if (writeDelay !== undefined) {
-            writeDelay /= 1000; // Convert ms to seconds
-        }
         if (writeDelay === undefined && taskArgs.delay !== undefined) {
-            writeDelay = taskArgs.delay; // taskArgs.delay is in seconds
+            writeDelay = taskArgs.delay * 1000; // taskArgs.delay is in seconds. Convert to ms.
         }
         if (writeDelay === undefined) {
             writeDelay = 0;

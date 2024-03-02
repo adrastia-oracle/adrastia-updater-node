@@ -34,10 +34,15 @@ export interface IUpdateTransactionHandler {
         updateData: BytesLike,
         signer: Signer,
         options?: TxConfig,
+        metadata?: WorkItemMetadata,
     ): Promise<void>;
 
     handleUpdateTx(tx: ContractTransactionResponse, signer: Signer): Promise<void>;
 }
+
+export type WorkItemMetadata = {
+    discoveryTimeMs?: number;
+};
 
 export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     updateTxOptions: TxConfig;
@@ -54,7 +59,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         this.logger = getLogger();
     }
 
-    async dropTransaction(tx: ContractTransaction, signer: Signer, dropStartTime: number, options?: TxConfig) {
+    async dropTransaction(
+        tx: ContractTransaction,
+        signer: Signer,
+        dropStartTime: number,
+        options?: TxConfig,
+        metadata?: WorkItemMetadata,
+    ) {
         const signerAddress = await signer.getAddress();
 
         // 20% + 1 GWEI more gas than previous
@@ -117,7 +128,15 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             await Timeout.wrap(receiptPromise, transactionTimeout, "Timeout");
 
-            const timeToDrop = Date.now() - dropStartTime;
+            const dropTime = Date.now();
+            const timeToDrop = dropTime - dropStartTime;
+            var totalWaitTime;
+
+            if (metadata?.discoveryTimeMs) {
+                totalWaitTime = dropTime - metadata.discoveryTimeMs;
+            } else {
+                this.logger.warn("Metadata discoveryTimeMs not found. Cannot calculate total drop wait time.");
+            }
 
             const receipt = await receiptPromise;
             const gasData = this.extractGasData(replacementTx, receipt);
@@ -185,7 +204,12 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         };
     }
 
-    async handleUpdateTx(tx: ContractTransactionResponse, signer: Signer, options?: TxConfig) {
+    async handleUpdateTx(
+        tx: ContractTransactionResponse,
+        signer: Signer,
+        options?: TxConfig,
+        metadata?: WorkItemMetadata,
+    ) {
         const confirmationsRequired = options.waitForConfirmations ?? this.updateTxOptions.waitForConfirmations ?? 5;
         if (confirmationsRequired === 0) {
             return;
@@ -202,7 +226,15 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
             await Timeout.wrap(txReceiptPromise, transactionTimeout, "Timeout");
 
-            const timeToMine = Date.now() - sendTime;
+            const minedTime = Date.now();
+            const timeToMine = minedTime - sendTime;
+            var totalWaitTime;
+
+            if (metadata?.discoveryTimeMs) {
+                totalWaitTime = minedTime - metadata.discoveryTimeMs;
+            } else {
+                this.logger.warn("Metadata discoveryTimeMs not found. Cannot calculate total mined wait time.");
+            }
 
             const receipt = await txReceiptPromise;
             const gasData = this.extractGasData(tx, receipt);
@@ -212,6 +244,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                     mined: 1,
                     timeToMine: timeToMine,
                     ...gasData,
+                    totalWaitTime: totalWaitTime,
                 },
             });
 
@@ -234,10 +267,20 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
                 const dropStartTime = Date.now();
 
-                await this.dropTransaction(tx, signer, dropStartTime, options);
+                await this.dropTransaction(tx, signer, dropStartTime, options, metadata);
             } else {
                 if (e.message?.includes("transaction execution reverted")) {
-                    const timeToRevert = Date.now() - sendTime;
+                    const timeReverted = Date.now();
+                    const timeToRevert = timeReverted - sendTime;
+                    var totalWaitTime;
+
+                    if (metadata?.discoveryTimeMs) {
+                        totalWaitTime = timeReverted - metadata.discoveryTimeMs;
+                    } else {
+                        this.logger.warn(
+                            "Metadata discoveryTimeMs not found. Cannot calculate total revert wait time.",
+                        );
+                    }
 
                     const gasData = this.extractGasData(tx, e.receipt);
 
@@ -246,6 +289,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                             reverted: 1,
                             timeToRevert: timeToRevert,
                             ...gasData,
+                            totalWaitTime: totalWaitTime,
                         },
                     });
                 }
@@ -334,7 +378,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         };
     }
 
-    async sendUpdateTx(updateable: string | Addressable, updateData: BytesLike, signer: Signer, options?: TxConfig) {
+    async sendUpdateTx(
+        updateable: string | Addressable,
+        updateData: BytesLike,
+        signer: Signer,
+        options?: TxConfig,
+        metadata?: WorkItemMetadata,
+    ) {
         const gasPriceData = await this.getGasPriceData(signer, options);
 
         this.logger.log(
@@ -356,7 +406,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
         this.logger.log(NOTICE, "Sent update transaction (tx type " + txType + "): " + tx.hash);
 
-        await this.handleUpdateTx(tx, signer, options);
+        await this.handleUpdateTx(tx, signer, options, metadata);
     }
 }
 

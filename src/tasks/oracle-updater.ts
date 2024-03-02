@@ -158,6 +158,11 @@ type CheckWorkItemsResult = {
     blockNumber: bigint;
 };
 
+type UpdateDelayedResponse = {
+    isDelayed: boolean;
+    firstObservedTimeMs: number;
+};
+
 export class AdrastiaUpdater {
     // Interface IDs
     static IHASLIQUIDITYACCUMULATOR_INTERFACEID = "0x06a5df37";
@@ -169,7 +174,7 @@ export class AdrastiaUpdater {
     signer: Signer;
     store: IKeyValueStore;
     updateTxHandler: IUpdateTransactionHandler;
-    updateDelay: number; // in seconds
+    updateDelay: number; // in ms
 
     dryRun = false;
 
@@ -436,15 +441,20 @@ export class AdrastiaUpdater {
         return updateThreshold;
     }
 
-    async updateIsDelayed(contract: BaseContract, token: string): Promise<boolean> {
-        if (this.updateDelay <= 0) return false;
+    async updateIsDelayed(contract: BaseContract, token: string): Promise<UpdateDelayedResponse> {
+        const currentTime = Date.now();
+
+        if (this.updateDelay <= 0) {
+            return {
+                isDelayed: false,
+                firstObservedTimeMs: currentTime,
+            };
+        }
 
         this.logger.info("Checking if accumulator update is delayed: " + contract.target + " (token: " + token + ")");
 
         const storeKey = this.chain + "." + contract.target + "." + token + ".updateNeededSince";
         const timeFromStore = await this.store.get(storeKey);
-
-        const currentTime = Math.floor(Date.now() / 1000); // unix timestamp
 
         if (timeFromStore !== undefined && timeFromStore !== null) {
             try {
@@ -454,24 +464,30 @@ export class AdrastiaUpdater {
 
                 this.logger.info(
                     "Update on or after: " +
-                        new Date(updateOnOrAfter * 1000).toISOString() +
+                        new Date(updateOnOrAfter).toISOString() +
                         " (" +
                         (isDelayed ? "delayed" : "not delayed") +
                         ")",
                 );
 
-                return isDelayed;
+                return {
+                    isDelayed: isDelayed,
+                    firstObservedTimeMs: Number.parseInt(timeFromStore),
+                };
             } catch (e) {}
         }
 
         this.logger.info(
-            "First update needed observation recorded. Update needed in " + this.updateDelay + " seconds.",
+            "First update needed observation recorded. Update needed in " + this.updateDelay / 1000 + " seconds.",
         );
 
         await this.store.put(storeKey, currentTime.toString());
 
         // This is the first observation that an update is needed, so we return true (update is delayed)
-        return true;
+        return {
+            isDelayed: true,
+            firstObservedTimeMs: currentTime,
+        };
     }
 
     async resetUpdateDelay(contractAddress: string, token: string): Promise<void> {
@@ -528,7 +544,8 @@ export class AdrastiaUpdater {
         const checkUpdateData = await this.generateLaCheckUpdateData(liquidityAccumulator, token);
 
         if (this.dryRun || (await liquidityAccumulator.canUpdate(checkUpdateData))) {
-            if (await this.updateIsDelayed(liquidityAccumulator, token.address as string)) {
+            const updateDelayedResponse = await this.updateIsDelayed(liquidityAccumulator, token.address as string);
+            if (updateDelayedResponse.isDelayed) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -542,7 +559,15 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(liquidityAccumulator.target, updateData, this.signer, txConfig);
+                await this.updateTxHandler.sendUpdateTx(
+                    liquidityAccumulator.target,
+                    updateData,
+                    this.signer,
+                    txConfig,
+                    {
+                        discoveryTimeMs: updateDelayedResponse.firstObservedTimeMs,
+                    },
+                );
             }
         }
 
@@ -1303,7 +1328,8 @@ export class AdrastiaUpdater {
         const checkUpdateData = await this.generatePaCheckUpdateData(priceAccumulator, token);
 
         if (this.dryRun || (await priceAccumulator.canUpdate(checkUpdateData))) {
-            if (await this.updateIsDelayed(priceAccumulator, token.address as string)) {
+            const updateDelayedResponse = await this.updateIsDelayed(priceAccumulator, token.address as string);
+            if (updateDelayedResponse.isDelayed) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -1317,7 +1343,9 @@ export class AdrastiaUpdater {
             }
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(priceAccumulator.target, updateData, this.signer, txConfig);
+                await this.updateTxHandler.sendUpdateTx(priceAccumulator.target, updateData, this.signer, txConfig, {
+                    discoveryTimeMs: updateDelayedResponse.firstObservedTimeMs,
+                });
             }
         }
 
@@ -1349,7 +1377,8 @@ export class AdrastiaUpdater {
         const updateData = ethers.zeroPadValue(token, 32);
 
         if (this.dryRun || (await oracle.canUpdate(updateData))) {
-            if (await this.updateIsDelayed(oracle, token)) {
+            const updateDelayedResponse = await this.updateIsDelayed(oracle, token);
+            if (updateDelayedResponse.isDelayed) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -1357,7 +1386,9 @@ export class AdrastiaUpdater {
             this.logger.log(NOTICE, "Updating oracle: " + oracle.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, txConfig);
+                await this.updateTxHandler.sendUpdateTx(oracle.target, updateData, this.signer, txConfig, {
+                    discoveryTimeMs: updateDelayedResponse.firstObservedTimeMs,
+                });
             }
         }
 
@@ -1799,7 +1830,8 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
         const upkeep: any = await automatable.checkUpkeep.staticCall(checkUpdateData);
 
         if (this.dryRun || upkeep.upkeepNeeded) {
-            if (await this.updateIsDelayed(automatable, token.address as string)) {
+            const updateDelayedResponse = await this.updateIsDelayed(automatable, token.address as string);
+            if (updateDelayedResponse.isDelayed) {
                 // Update is delayed. Do not update.
                 return;
             }
@@ -1807,7 +1839,9 @@ export class AdrastiaAciUpdater extends AdrastiaUpdater {
             this.logger.log(NOTICE, "Updating ACI: " + automatable.target);
 
             if (!this.dryRun) {
-                await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, txConfig);
+                await this.updateTxHandler.sendUpdateTx(automatable.target, upkeep.performData, this.signer, txConfig, {
+                    discoveryTimeMs: updateDelayedResponse.firstObservedTimeMs,
+                });
             }
         }
 
