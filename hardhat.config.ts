@@ -337,8 +337,11 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
         }
 
         var timesRepeated = 0;
+        var lastPollTimeMs = 0;
 
         while (timesRepeated++ < repeatTimes) {
+            lastPollTimeMs = Date.now();
+
             if (taskArgs.service) {
                 // Inform systemd that we are still running
                 notify.watchdog();
@@ -370,9 +373,16 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
             }
 
             if (pollingInterval > 0) {
-                logger.info("Sleeping for %i ms", pollingInterval);
+                const elapsed = Date.now() - lastPollTimeMs;
 
-                await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+                var sleepTime = pollingInterval - elapsed;
+                if (sleepTime <= 10) {
+                    sleepTime = 10;
+                }
+
+                logger.info("Sleeping for %i ms (polling interval is %i ms)", sleepTime, pollingInterval);
+
+                await new Promise((resolve) => setTimeout(resolve, sleepTime));
             }
         }
     });
