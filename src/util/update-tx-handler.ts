@@ -155,6 +155,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                         dropped: 1,
                         timeToDrop: timeToDrop,
                         ...gasData,
+                        totalWaitTime: totalWaitTime,
                     },
                 },
             );
