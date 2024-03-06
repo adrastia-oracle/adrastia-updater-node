@@ -643,6 +643,18 @@ const config: HardhatUserConfig = {
                     DEFAULT_ACCOUNT_COUNT,
             },
         },
+        blast: {
+            url: process.env.BLAST_URL ?? "",
+            accounts: {
+                mnemonic: process.env.BLAST_MNEMONIC ?? "",
+                path: process.env.BLAST_PATH ?? DEFAULT_PATH,
+                passphrase: process.env.BLAST_PASSPHRASE ?? DEFAULT_PASSPHRASE,
+                count:
+                    parseIntOrUndefined(process.env.BLAST_ACCOUNT_COUNT) ??
+                    parseIntOrUndefined(process.env.DEFAULT_ACCOUNT_COUNT) ??
+                    DEFAULT_ACCOUNT_COUNT,
+            },
+        },
     },
 };
 
