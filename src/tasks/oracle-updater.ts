@@ -462,7 +462,8 @@ export class AdrastiaUpdater {
 
                 const isDelayed = currentTime < updateOnOrAfter;
 
-                this.logger.info(
+                this.logger.log(
+                    NOTICE,
                     "Update on or after: " +
                         new Date(updateOnOrAfter).toISOString() +
                         " (" +
@@ -554,7 +555,7 @@ export class AdrastiaUpdater {
 
             const updateData = await this.generateLaUpdateData(liquidityAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
-                this.logger.info("Liquidity accumulator update data is undefined. Skipping update.");
+                this.logger.warn("Liquidity accumulator update data is undefined. Skipping update.");
                 return;
             }
 
@@ -1166,59 +1167,72 @@ export class AdrastiaUpdater {
                     price = await this.fetchBinancePrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Binance price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "huobi") {
                     price = await this.fetchHuobiPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info("Huobi price = " + price.toString() + " (index = " + sourceIndex.toString() + ")");
+                    this.logger.log(
+                        NOTICE,
+                        "Huobi price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
+                    );
                 } else if (source.type === "coinex") {
                     price = await this.fetchCoinExPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "CoinEx price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "bitfinix") {
                     price = await this.fetchBitfinixPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Bitfinix price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "bitstamp") {
                     price = await this.fetchBitstampPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Bitstamp price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "coinbase") {
                     price = await this.fetchCoinbasePrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Coinbase price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "kucoin") {
                     price = await this.fetchKucoinPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Kucoin price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else if (source.type === "llama") {
                     price = await this.fetchLlamaPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info("Llama price = " + price.toString() + " (index = " + sourceIndex.toString() + ")");
+                    this.logger.log(
+                        NOTICE,
+                        "Llama price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
+                    );
                 } else if (source.type === "kraken") {
                     price = await this.fetchKrakenPrice(source.routes);
                     hasPrice = true;
 
-                    this.logger.info(
+                    this.logger.log(
+                        NOTICE,
                         "Kraken price = " + price.toString() + " (index = " + sourceIndex.toString() + ")",
                     );
                 } else {
@@ -1338,7 +1352,7 @@ export class AdrastiaUpdater {
 
             const updateData = await this.generatePaUpdateData(priceAccumulator, token, checkUpdateData);
             if (updateData === undefined) {
-                this.logger.info("Price accumulator update data is undefined. Skipping update.");
+                this.logger.warn("Price accumulator update data is undefined. Skipping update.");
                 return;
             }
 
@@ -1720,7 +1734,8 @@ export class AdrastiaUpdater {
             for (const workItem of workItems) {
                 if (workItem.needsWork) {
                     try {
-                        this.logger.info(
+                        this.logger.log(
+                            NOTICE,
                             "Processing work item: " +
                                 workItem.address +
                                 "." +
@@ -1804,7 +1819,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
 
         const gasPriceFormatted = ethers.formatUnits(gasPrice, "gwei");
 
-        this.logger.info("Fast gas price: " + gasPriceFormatted);
+        this.logger.log(NOTICE, "Fast gas price: " + gasPriceFormatted);
 
         return AbiCoder.defaultAbiCoder().encode(["address", "uint"], [token.address as string, gasPrice]);
     }
