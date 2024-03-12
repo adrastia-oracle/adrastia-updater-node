@@ -1819,7 +1819,7 @@ export class AdrastiaGasPriceOracleUpdater extends AdrastiaUpdater {
 
         const gasPriceFormatted = ethers.formatUnits(gasPrice, "gwei");
 
-        this.logger.log(NOTICE, "Fast gas price: " + gasPriceFormatted);
+        this.logger.info("Fast gas price: " + gasPriceFormatted);
 
         return AbiCoder.defaultAbiCoder().encode(["address", "uint"], [token.address as string, gasPrice]);
     }
