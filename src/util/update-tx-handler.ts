@@ -110,17 +110,30 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
         const txType = options.txType ?? this.updateTxOptions.txType ?? 0;
 
-        // Transfer 0 ether to self to drop and replace the transaction
-        const replacementTx = await signer.sendTransaction({
-            from: signerAddress,
-            to: signerAddress,
-            value: ethers.parseEther("0"),
-            nonce: tx.nonce,
-            type: txType,
-            gasPrice: txType === 2 ? undefined : gasPriceToUse,
-            maxFeePerGas: txType === 2 ? maxFeePerGasToUse : undefined,
-            maxPriorityFeePerGas: txType === 2 ? maxPriorityFeePerGasToUse : undefined,
-        });
+        var replacementTx;
+        try {
+            // Transfer 0 ether to self to drop and replace the transaction
+            replacementTx = await signer.sendTransaction({
+                from: signerAddress,
+                to: signerAddress,
+                value: ethers.parseEther("0"),
+                nonce: tx.nonce,
+                type: txType,
+                gasPrice: txType === 2 ? undefined : gasPriceToUse,
+                maxFeePerGas: txType === 2 ? maxFeePerGasToUse : undefined,
+                maxPriorityFeePerGas: txType === 2 ? maxPriorityFeePerGasToUse : undefined,
+            });
+        } catch (e) {
+            if (e.message?.includes("replacement transaction underpriced")) {
+                this.logger.log(NOTICE, "Replacement transaction underpriced. Trying again...");
+
+                await this.dropTransaction(tx, signer, dropStartTime, options);
+
+                return;
+            } else {
+                throw e;
+            }
+        }
         try {
             const receiptPromise = replacementTx.wait();
 
