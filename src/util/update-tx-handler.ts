@@ -127,7 +127,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             if (e.message?.includes("replacement transaction underpriced")) {
                 this.logger.log(NOTICE, "Replacement transaction underpriced. Trying again...");
 
-                await this.dropTransaction(tx, signer, dropStartTime, options);
+                await this.dropTransaction(tx, signer, dropStartTime, options, metadata);
 
                 return;
             } else {
@@ -180,7 +180,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 // spamming the RPC node with requests.
                 await signer.provider.removeAllListeners();
 
-                await this.dropTransaction(replacementTx, signer, dropStartTime, options);
+                await this.dropTransaction(replacementTx, signer, dropStartTime, options, metadata);
             }
         }
     }
