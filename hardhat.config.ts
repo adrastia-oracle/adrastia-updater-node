@@ -69,6 +69,33 @@ task("print-network", "Prints the current network config", async (_, hre) => {
     console.log(networkConfig);
 });
 
+task("print-gas", "Prints the gas price")
+    .addFlag("raw", "Gets the gas data straight from the provider. Otherwise, gets it from the update tx handler.")
+    .setAction(async (taskArgs, hre) => {
+        // Get the signer
+        const accounts = await hre.ethers.getSigners();
+        const signer = accounts[0];
+
+        var feeData;
+
+        if (taskArgs.raw) {
+            // Get the gas price
+            feeData = await signer.provider.getFeeData();
+        } else {
+            initializeLogging(false, "", "", "", "warning");
+
+            const updateTxHandler = new UpdateTransactionHandler({
+                transactionTimeout: 1000,
+            });
+            feeData = await updateTxHandler.getGasPriceData(signer);
+        }
+
+        // Print the fee data in gwei
+        console.log("Gas price: " + formatUnits(feeData.gasPrice, "gwei") + " gwei");
+        console.log("Max fee per gas: " + formatUnits(feeData.maxFeePerGas, "gwei") + " gwei");
+        console.log("Max priority fee per gas: " + formatUnits(feeData.maxPriorityFeePerGas, "gwei") + " gwei");
+    });
+
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     const accounts = await hre.ethers.getSigners();
 
