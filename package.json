@@ -37,11 +37,13 @@
         "winston-journald3": "^0.1.2"
     },
     "devDependencies": {
+        "@nomicfoundation/hardhat-ignition": "^0.15.0",
+        "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
         "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
-        "@types/chai": "^4.3.12",
-        "@types/mocha": "^10.0.6",
+        "@nomicfoundation/ignition-core": "^0.15.0",
+        "@types/mocha": ">=9.1.0",
         "@types/node": "^20.11.28",
-        "chai": "^5.1.0",
+        "chai": "^4.2.0",
         "hardhat": "^2.22.1",
         "hardhat-gas-reporter": "^1.0.9",
         "prettier": "^3.2.5",
