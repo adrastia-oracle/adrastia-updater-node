@@ -68,22 +68,22 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
     ) {
         const signerAddress = await signer.getAddress();
 
-        // 20% + 1 GWEI more gas than previous
-        var gasPriceToUse: bigint = (tx.gasPrice * 12n) / 10n + ONE_GWEI;
+        // 25% + 1 GWEI more gas than previous
+        var gasPriceToUse: bigint = (tx.gasPrice * 125n) / 100n + ONE_GWEI;
         var maxFeePerGasToUse: bigint | null = tx.maxFeePerGas;
         var maxPriorityFeePerGasToUse: bigint | null = tx.maxPriorityFeePerGas;
         if (maxFeePerGasToUse !== null && maxFeePerGasToUse !== undefined) {
-            maxFeePerGasToUse = (maxFeePerGasToUse * 12n) / 10n + ONE_GWEI;
+            maxFeePerGasToUse = (maxFeePerGasToUse * 125n) / 100n + ONE_GWEI;
         }
         if (maxPriorityFeePerGasToUse !== null && maxPriorityFeePerGasToUse !== undefined) {
-            maxPriorityFeePerGasToUse = (maxPriorityFeePerGasToUse * 12n) / 10n + ONE_GWEI;
+            maxPriorityFeePerGasToUse = (maxPriorityFeePerGasToUse * 125n) / 100n + ONE_GWEI;
         }
 
         // Check if the network is consuming more gas than when the transaction was submitted
         const gasPriceData = await this.getGasPriceData(
             signer,
             options ?? {
-                gasPriceMultiplierDividend: 120n,
+                gasPriceMultiplierDividend: 125n,
                 gasPriceMultiplierDivisor: 100n,
             },
         );
