@@ -349,6 +349,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         if (maxFeePerGas != null) {
             // maxPriorityFeePerGas is always 1 gwei and is not returned by the provider
             maxPriorityFeePerGas = gasPrice - maxFeePerGas;
+            maxFeePerGas = maxFeePerGas + maxPriorityFeePerGas;
         }
 
         this.logger.info(
