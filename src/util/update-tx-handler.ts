@@ -80,10 +80,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         }
 
         // Check if the network is consuming more gas than when the transaction was submitted
-        const gasPriceData = await this.getGasPriceData(signer, {
-            gasPriceMultiplierDividend: 120n,
-            gasPriceMultiplierDivisor: 100n,
-        });
+        const gasPriceData = await this.getGasPriceData(
+            signer,
+            options ?? {
+                gasPriceMultiplierDividend: 120n,
+                gasPriceMultiplierDivisor: 100n,
+            },
+        );
         // Add 1 gwei just in-case the scaled gas price is the same as the original gas price
         gasPriceData.gasPrice = gasPriceData.gasPrice + ONE_GWEI;
         if (gasPriceData.maxFeePerGas !== null && gasPriceData.maxFeePerGas !== undefined) {
