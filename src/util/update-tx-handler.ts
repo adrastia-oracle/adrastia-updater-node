@@ -356,9 +356,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             "Gas price from signer: " +
                 ethers.formatUnits(gasPrice, "gwei") +
                 " (maxFeePerGas: " +
-                maxFeePerGas +
+                ethers.formatUnits(maxFeePerGas, "gwei") +
                 ", maxPriorityFeePerGas: " +
-                maxPriorityFeePerGas +
+                ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
                 ")",
         );
 
@@ -376,9 +376,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price adjusted by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    maxFeePerGas +
+                    ethers.formatUnits(maxFeePerGas, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    maxPriorityFeePerGas +
+                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
                     ")",
             );
         } else if (
@@ -403,9 +403,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price adjusted by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    maxFeePerGas +
+                    ethers.formatUnits(maxFeePerGas, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    maxPriorityFeePerGas +
+                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
                     ")",
             );
         }
@@ -418,9 +418,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price capped by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    maxFeePerGas +
+                    ethers.formatUnits(maxFeePerGas, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    maxPriorityFeePerGas +
+                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
                     ")",
             );
         }
@@ -431,9 +431,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price capped by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    maxFeePerGas +
+                    ethers.formatUnits(maxFeePerGas, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    maxPriorityFeePerGas +
+                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
                     ")",
             );
         }
