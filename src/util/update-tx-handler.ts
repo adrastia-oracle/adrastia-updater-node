@@ -87,14 +87,17 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             maxPriorityFeePerGasToUse = (maxPriorityFeePerGasToUse * 125n) / 100n + ONE_GWEI;
         }
 
-        // Check if the network is consuming more gas than when the transaction was submitted
-        const gasPriceData = await this.getGasPriceData(
-            signer,
-            options ?? {
+        const txConfig = options ??
+            this.updateTxOptions ?? {
                 gasPriceMultiplierDividend: 125n,
                 gasPriceMultiplierDivisor: 100n,
-            },
-        );
+            };
+
+        // Check if the network is consuming more gas than when the transaction was submitted
+        const gasPriceData = await this.getGasPriceData(signer, {
+            ...txConfig,
+            maxGasPrice: undefined, // Drop transaction should not be capped
+        });
         // Add 1 gwei just in-case the scaled gas price is the same as the original gas price
         gasPriceData.gasPrice = gasPriceData.gasPrice + ONE_GWEI;
         if (gasPriceData.maxFeePerGas !== null && gasPriceData.maxFeePerGas !== undefined) {
@@ -356,9 +359,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             "Gas price from signer: " +
                 ethers.formatUnits(gasPrice, "gwei") +
                 " (maxFeePerGas: " +
-                ethers.formatUnits(maxFeePerGas, "gwei") +
+                ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
                 ", maxPriorityFeePerGas: " +
-                ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
                 ")",
         );
 
@@ -376,9 +379,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price adjusted by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas, "gwei") +
+                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
                     ")",
             );
         } else if (
@@ -403,9 +406,9 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 "Gas price adjusted by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas, "gwei") +
+                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
                     ")",
             );
         }
@@ -414,26 +417,48 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         if (options?.maxGasPrice && gasPrice > options?.maxGasPrice) {
             gasPrice = options.maxGasPrice;
 
+            if (maxFeePerGas != null && maxPriorityFeePerGas != null) {
+                const delta = maxFeePerGas - gasPrice;
+                if (delta > 0n) {
+                    maxFeePerGas -= delta;
+                    maxPriorityFeePerGas -= delta;
+                    if (maxPriorityFeePerGas < 0n) {
+                        maxPriorityFeePerGas = 0n;
+                    }
+                }
+            }
+
             this.logger.info(
                 "Gas price capped by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas, "gwei") +
+                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
                     ")",
             );
         }
         if (this.updateTxOptions?.maxGasPrice && gasPrice > this.updateTxOptions?.maxGasPrice) {
             gasPrice = this.updateTxOptions?.maxGasPrice;
 
+            if (maxFeePerGas != null && maxPriorityFeePerGas != null) {
+                const delta = maxFeePerGas - gasPrice;
+                if (delta > 0n) {
+                    maxFeePerGas -= delta;
+                    maxPriorityFeePerGas -= delta;
+                    if (maxPriorityFeePerGas < 0n) {
+                        maxPriorityFeePerGas = 0n;
+                    }
+                }
+            }
+
             this.logger.info(
                 "Gas price capped by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
                     " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas, "gwei") +
+                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
                     ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
                     ")",
             );
         }
