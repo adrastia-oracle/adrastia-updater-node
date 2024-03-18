@@ -1452,7 +1452,7 @@ export class AdrastiaUpdater {
 
                     await this.setChainUptimeWebhookLastSent(currentTime);
                 } catch (e) {
-                    this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
+                    this.logger.log(WARNING, "Error notifying uptime service: " + e.message, { error: e });
 
                     // Check if the last sent time is still the same as when we set it. If not, some other process
                     // has already updated it, so we don't need to do anything.
@@ -1565,7 +1565,7 @@ export class AdrastiaUpdater {
         try {
             await this.notifyChainUptimeService();
         } catch (e) {
-            this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
+            this.logger.log(WARNING, "Error notifying uptime service: " + e.message, { error: e });
         }
 
         // Process results
@@ -1582,7 +1582,8 @@ export class AdrastiaUpdater {
                     if (workItem.needsWork) {
                         ++amountOfWork;
 
-                        this.logger.notice(
+                        this.logger.log(
+                            WARNING,
                             "Work item needs work: " +
                                 workItem.address +
                                 "." +
@@ -1752,7 +1753,7 @@ export class AdrastiaUpdater {
                         try {
                             await this.notifyChainUptimeService();
                         } catch (e) {
-                            this.logger.warning("Error notifying uptime service: " + e.message, { error: e });
+                            this.logger.log(WARNING, "Error notifying uptime service: " + e.message, { error: e });
                         }
                     } catch (e) {
                         this.logger.error(
@@ -1762,7 +1763,8 @@ export class AdrastiaUpdater {
                                 workItem.token.address +
                                 " (" +
                                 workItem.type +
-                                ")",
+                                "): " +
+                                e.message,
                             { error: e },
                         );
                     }
