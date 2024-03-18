@@ -22,7 +22,7 @@ import { AutomationCompatibleInterface } from "../../typechain/local";
 import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
-import { NOTICE } from "../logging/log-levels";
+import { ERROR, NOTICE } from "../logging/log-levels";
 import { TxConfig } from "../config/adrastia-config";
 
 const ONE_GWEI = BigInt("1000000000");
@@ -63,9 +63,17 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         tx: ContractTransaction,
         signer: Signer,
         dropStartTime: number,
+        dropTries: number,
+        maxDropTries: number,
         options?: TxConfig,
         metadata?: WorkItemMetadata,
     ) {
+        if (dropTries >= maxDropTries) {
+            this.logger.log(ERROR, "Max drop tries reached. Aborting drop transaction.");
+
+            return;
+        }
+
         const signerAddress = await signer.getAddress();
 
         // 25% + 1 GWEI more gas than previous
@@ -130,7 +138,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             if (e.message?.includes("replacement transaction underpriced")) {
                 this.logger.log(NOTICE, "Replacement transaction underpriced. Trying again...");
 
-                await this.dropTransaction(tx, signer, dropStartTime, options, metadata);
+                await this.dropTransaction(tx, signer, dropStartTime, dropTries + 1, maxDropTries, options, metadata);
 
                 return;
             } else {
@@ -183,7 +191,15 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                 // spamming the RPC node with requests.
                 await signer.provider.removeAllListeners();
 
-                await this.dropTransaction(replacementTx, signer, dropStartTime, options, metadata);
+                await this.dropTransaction(
+                    replacementTx,
+                    signer,
+                    dropStartTime,
+                    dropTries + 1,
+                    maxDropTries,
+                    options,
+                    metadata,
+                );
             }
         }
     }
@@ -284,7 +300,7 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
 
                 const dropStartTime = Date.now();
 
-                await this.dropTransaction(tx, signer, dropStartTime, options, metadata);
+                await this.dropTransaction(tx, signer, dropStartTime, 0, 5, options, metadata);
             } else {
                 if (e.message?.includes("transaction execution reverted")) {
                     const timeReverted = Date.now();
@@ -330,36 +346,50 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         var maxFeePerGas: bigint | null = feeData.maxFeePerGas;
         var maxPriorityFeePerGas: bigint | null = feeData.maxPriorityFeePerGas;
 
-        this.logger.info("Gas price from signer: " + ethers.formatUnits(gasPrice, "gwei"));
+        if (maxFeePerGas != null) {
+            // maxPriorityFeePerGas is always 1 gwei and is not returned by the provider
+            maxPriorityFeePerGas = gasPrice - maxFeePerGas;
+        }
 
-        if (options.gasPriceMultiplierDividend && options.gasPriceMultiplierDivisor) {
+        this.logger.info(
+            "Gas price from signer: " +
+                ethers.formatUnits(gasPrice, "gwei") +
+                " (maxFeePerGas: " +
+                maxFeePerGas +
+                ", maxPriorityFeePerGas: " +
+                maxPriorityFeePerGas +
+                ")",
+        );
+
+        if (options?.gasPriceMultiplierDividend && options?.gasPriceMultiplierDivisor) {
             // Adjust the gas price by the specified multiplier
             gasPrice = (gasPrice * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
 
-            if (
-                maxFeePerGas !== null &&
-                maxFeePerGas !== undefined &&
-                maxPriorityFeePerGas !== null &&
-                maxPriorityFeePerGas !== undefined
-            ) {
+            if (maxFeePerGas != null && maxPriorityFeePerGas != null) {
                 maxFeePerGas = (maxFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
                 maxPriorityFeePerGas =
                     (maxPriorityFeePerGas * options.gasPriceMultiplierDividend) / options.gasPriceMultiplierDivisor;
             }
 
-            this.logger.info("Gas price adjusted by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
-        } else if (this.updateTxOptions.gasPriceMultiplierDividend && this.updateTxOptions.gasPriceMultiplierDivisor) {
+            this.logger.info(
+                "Gas price adjusted by tx options: " +
+                    ethers.formatUnits(gasPrice, "gwei") +
+                    " (maxFeePerGas: " +
+                    maxFeePerGas +
+                    ", maxPriorityFeePerGas: " +
+                    maxPriorityFeePerGas +
+                    ")",
+            );
+        } else if (
+            this.updateTxOptions?.gasPriceMultiplierDividend &&
+            this.updateTxOptions?.gasPriceMultiplierDivisor
+        ) {
             // Adjust the gas price by the default multiplier
             gasPrice =
                 (gasPrice * this.updateTxOptions.gasPriceMultiplierDividend) /
                 this.updateTxOptions.gasPriceMultiplierDivisor;
 
-            if (
-                maxFeePerGas !== null &&
-                maxFeePerGas !== undefined &&
-                maxPriorityFeePerGas !== null &&
-                maxPriorityFeePerGas !== undefined
-            ) {
+            if (maxFeePerGas != null && maxPriorityFeePerGas != null) {
                 maxFeePerGas =
                     (maxFeePerGas * this.updateTxOptions.gasPriceMultiplierDividend) /
                     this.updateTxOptions.gasPriceMultiplierDivisor;
@@ -368,19 +398,43 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
                     this.updateTxOptions.gasPriceMultiplierDivisor;
             }
 
-            this.logger.info("Gas price adjusted by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info(
+                "Gas price adjusted by instance options: " +
+                    ethers.formatUnits(gasPrice, "gwei") +
+                    " (maxFeePerGas: " +
+                    maxFeePerGas +
+                    ", maxPriorityFeePerGas: " +
+                    maxPriorityFeePerGas +
+                    ")",
+            );
         }
 
         // Cap the gas price if specified
-        if (options.maxGasPrice && gasPrice > options.maxGasPrice) {
+        if (options?.maxGasPrice && gasPrice > options?.maxGasPrice) {
             gasPrice = options.maxGasPrice;
 
-            this.logger.info("Gas price capped by tx options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info(
+                "Gas price capped by tx options: " +
+                    ethers.formatUnits(gasPrice, "gwei") +
+                    " (maxFeePerGas: " +
+                    maxFeePerGas +
+                    ", maxPriorityFeePerGas: " +
+                    maxPriorityFeePerGas +
+                    ")",
+            );
         }
-        if (this.updateTxOptions.maxGasPrice && gasPrice > this.updateTxOptions.maxGasPrice) {
-            gasPrice = this.updateTxOptions.maxGasPrice;
+        if (this.updateTxOptions?.maxGasPrice && gasPrice > this.updateTxOptions?.maxGasPrice) {
+            gasPrice = this.updateTxOptions?.maxGasPrice;
 
-            this.logger.info("Gas price capped by instance options: " + ethers.formatUnits(gasPrice, "gwei"));
+            this.logger.info(
+                "Gas price capped by instance options: " +
+                    ethers.formatUnits(gasPrice, "gwei") +
+                    " (maxFeePerGas: " +
+                    maxFeePerGas +
+                    ", maxPriorityFeePerGas: " +
+                    maxPriorityFeePerGas +
+                    ")",
+            );
         }
         if (gasPrice < gasPriceFromSigner) {
             throw new Error(
