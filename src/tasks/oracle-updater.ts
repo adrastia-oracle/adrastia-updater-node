@@ -1583,7 +1583,7 @@ export class AdrastiaUpdater {
                         ++amountOfWork;
 
                         this.logger.log(
-                            WARNING,
+                            NOTICE,
                             "Work item needs work: " +
                                 workItem.address +
                                 "." +
