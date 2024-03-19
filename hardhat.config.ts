@@ -3,6 +3,7 @@ import * as dotenv from "dotenv";
 import { task, types } from "hardhat/config";
 import { HardhatNetworkAccountUserConfig, HardhatUserConfig } from "hardhat/types";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-web3-v4";
 
 import { AciUpdateTransactionHandler, UpdateTransactionHandler } from "./src/util/update-tx-handler";
 import { run } from "./src/tasks/oracle-updater";
@@ -71,6 +72,7 @@ task("print-network", "Prints the current network config", async (_, hre) => {
 
 task("print-gas", "Prints the gas price")
     .addFlag("raw", "Gets the gas data straight from the provider. Otherwise, gets it from the update tx handler.")
+    .addParam("txType", "The numeric transaction type (either 0 or 2).", 0, types.int, true)
     .setAction(async (taskArgs, hre) => {
         // Get the signer
         const accounts = await hre.ethers.getSigners();
@@ -82,10 +84,11 @@ task("print-gas", "Prints the gas price")
             // Get the gas price
             feeData = await signer.provider.getFeeData();
         } else {
-            initializeLogging(false, "", "", "", "warning");
+            initializeLogging(false, "", "", "", "info");
 
-            const updateTxHandler = new UpdateTransactionHandler({
+            const updateTxHandler = new UpdateTransactionHandler(hre.web3, {
                 transactionTimeout: 1000,
+                txType: taskArgs.txType,
             });
             feeData = await updateTxHandler.getGasPriceData(signer);
         }
@@ -294,9 +297,9 @@ task("run-oracle-updater", "Runs the updater using the signer from Hardhat.")
 
         var updateTxHandler: UpdateTransactionHandler;
         if (taskArgs.type === "aci-address") {
-            updateTxHandler = new AciUpdateTransactionHandler(updateTxOptions);
+            updateTxHandler = new AciUpdateTransactionHandler(hre.web3, updateTxOptions);
         } else {
-            updateTxHandler = new UpdateTransactionHandler(updateTxOptions);
+            updateTxHandler = new UpdateTransactionHandler(hre.web3, updateTxOptions);
         }
 
         var proxyConfig: AxiosProxyConfig;

@@ -16,13 +16,14 @@ import {
     TransactionReceipt,
     TransactionResponse,
 } from "ethers";
+import { Web3 } from "web3";
 import { IUpdateable } from "../../typechain/adrastia-core-v4";
 import { AutomationCompatibleInterface } from "../../typechain/local";
 
 import { abi as IUPDATEABLE_ABI } from "adrastia-core-v4/artifacts/contracts/interfaces/IUpdateable.sol/IUpdateable.json";
 import { Logger } from "winston";
 import { getLogger } from "../logging/logging";
-import { ERROR, NOTICE } from "../logging/log-levels";
+import { ERROR, NOTICE, WARNING } from "../logging/log-levels";
 import { TxConfig } from "../config/adrastia-config";
 
 const ONE_GWEI = BigInt("1000000000");
@@ -45,15 +46,17 @@ export type WorkItemMetadata = {
 };
 
 export class UpdateTransactionHandler implements IUpdateTransactionHandler {
+    web3: Web3;
     updateTxOptions: TxConfig;
 
     logger: Logger;
 
-    constructor(updateTxOptions: TxConfig) {
+    constructor(web3: Web3, updateTxOptions: TxConfig) {
         if (!updateTxOptions?.transactionTimeout) {
             throw new Error("transactionTimeout must be a number greater than zero");
         }
 
+        this.web3 = web3;
         this.updateTxOptions = updateTxOptions;
 
         this.logger = getLogger();
@@ -341,28 +344,117 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
         return await updateableContract.update(updateData, overrides);
     }
 
+    formatFeeHistory(result, includePending: boolean, historicalBlocks: number) {
+        var blockNum: bigint = result.oldestBlock;
+        var index: number = 0;
+        const blocks = [];
+        const highBlock: bigint = result.oldestBlock + BigInt(historicalBlocks);
+        while (blockNum < highBlock) {
+            blocks.push({
+                number: blockNum,
+                baseFeePerGas: result.baseFeePerGas[index],
+                gasUsedRatio: result.gasUsedRatio[index],
+                priorityFeePerGas: result.reward[index].map((x) => BigInt(x)),
+            });
+            blockNum += 1n;
+            index += 1;
+        }
+        if (includePending) {
+            blocks.push({
+                number: "pending",
+                baseFeePerGas: result.baseFeePerGas[historicalBlocks],
+                gasUsedRatio: NaN,
+                priorityFeePerGas: [],
+            });
+        }
+        return blocks;
+    }
+
+    avg(arr: bigint[]) {
+        const sum: bigint = arr.reduce((a, v) => a + v);
+
+        return sum / BigInt(arr.length);
+    }
+
+    async getFeeData(historicalBlocks: number, percentile: number) {
+        const feeHistory = await this.web3.eth.getFeeHistory(historicalBlocks, "pending", [percentile]);
+
+        const blocks = this.formatFeeHistory(feeHistory, false, historicalBlocks);
+
+        const priorityFeePerGas = this.avg(blocks.map((b) => b.priorityFeePerGas[0]));
+
+        const block = await this.web3.eth.getBlock("pending");
+
+        const baseFeePerGas = block.baseFeePerGas;
+
+        return {
+            baseFeePerGas: baseFeePerGas,
+            maxPriorityFeePerGas: priorityFeePerGas,
+            maxFeePerGas: baseFeePerGas + priorityFeePerGas,
+        };
+    }
+
     async getGasPriceData(signer: Signer, options?: TxConfig) {
-        const feeData: FeeData = await signer.provider.getFeeData();
-        const gasPriceFromSigner = feeData.gasPrice;
+        var gasPrice: bigint;
+        var maxFeePerGas: bigint | undefined;
+        var maxPriorityFeePerGas: bigint | undefined;
 
-        var gasPrice: bigint = gasPriceFromSigner;
-        var maxFeePerGas: bigint | null = feeData.maxFeePerGas;
-        var maxPriorityFeePerGas: bigint | null = feeData.maxPriorityFeePerGas;
+        const txType = options?.txType ?? this.updateTxOptions.txType ?? 0;
+        if (txType === 2) {
+            const defaultPercentile = 50;
+            const defaultHistoricalBlocks = 5;
 
-        if (maxFeePerGas != null) {
-            // maxPriorityFeePerGas is always 1 gwei and is not returned by the provider
-            maxPriorityFeePerGas = gasPrice - maxFeePerGas;
-            maxFeePerGas = maxFeePerGas + maxPriorityFeePerGas;
+            var percentile =
+                options?.eip1559?.percentile ?? this.updateTxOptions.eip1559?.percentile ?? defaultPercentile;
+            var historicalBlocks =
+                options?.eip1559?.historicalBlocks ??
+                this.updateTxOptions.eip1559?.historicalBlocks ??
+                defaultHistoricalBlocks;
+
+            if (percentile < 1 || percentile > 100) {
+                this.logger.log(
+                    WARNING,
+                    "Invalid percentile value of " + percentile + ". Using default value of " + defaultPercentile + ".",
+                );
+
+                percentile = defaultPercentile;
+            }
+            if (historicalBlocks < 1) {
+                this.logger.log(
+                    WARNING,
+                    "Invalid historicalBlocks value of " +
+                        historicalBlocks +
+                        ". Using default value of " +
+                        defaultHistoricalBlocks +
+                        ".",
+                );
+
+                historicalBlocks = defaultHistoricalBlocks;
+            }
+
+            const feeData = await this.getFeeData(historicalBlocks, percentile);
+
+            gasPrice = feeData.maxFeePerGas;
+            maxFeePerGas = feeData.maxFeePerGas;
+            maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        } else {
+            const feeData: FeeData = await signer.provider.getFeeData();
+
+            gasPrice = feeData.gasPrice;
+            maxFeePerGas = undefined;
+            maxPriorityFeePerGas = undefined;
         }
 
         this.logger.info(
             "Gas price from signer: " +
                 ethers.formatUnits(gasPrice, "gwei") +
-                " (maxFeePerGas: " +
-                ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
-                ", maxPriorityFeePerGas: " +
-                ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
-                ")",
+                (txType === 2
+                    ? " (EIP-1559, base fee = " +
+                      ethers.formatUnits(maxFeePerGas - maxPriorityFeePerGas, "gwei") +
+                      ", priority fee = " +
+                      ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                      ")"
+                    : ""),
         );
 
         if (options?.gasPriceMultiplierDividend && options?.gasPriceMultiplierDivisor) {
@@ -378,11 +470,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             this.logger.info(
                 "Gas price adjusted by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
-                    " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
-                    ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
-                    ")",
+                    (txType === 2
+                        ? " (EIP-1559, base fee = " +
+                          ethers.formatUnits(maxFeePerGas - maxPriorityFeePerGas, "gwei") +
+                          ", priority fee = " +
+                          ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                          ")"
+                        : ""),
             );
         } else if (
             this.updateTxOptions?.gasPriceMultiplierDividend &&
@@ -405,11 +499,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             this.logger.info(
                 "Gas price adjusted by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
-                    " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
-                    ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
-                    ")",
+                    (txType === 2
+                        ? " (EIP-1559, base fee = " +
+                          ethers.formatUnits(maxFeePerGas - maxPriorityFeePerGas, "gwei") +
+                          ", priority fee = " +
+                          ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                          ")"
+                        : ""),
             );
         }
 
@@ -431,11 +527,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             this.logger.info(
                 "Gas price capped by tx options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
-                    " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
-                    ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
-                    ")",
+                    (txType === 2
+                        ? " (EIP-1559, base fee = " +
+                          ethers.formatUnits(maxFeePerGas - maxPriorityFeePerGas, "gwei") +
+                          ", priority fee = " +
+                          ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                          ")"
+                        : ""),
             );
         }
         if (this.updateTxOptions?.maxGasPrice && gasPrice > this.updateTxOptions?.maxGasPrice) {
@@ -455,16 +553,13 @@ export class UpdateTransactionHandler implements IUpdateTransactionHandler {
             this.logger.info(
                 "Gas price capped by instance options: " +
                     ethers.formatUnits(gasPrice, "gwei") +
-                    " (maxFeePerGas: " +
-                    ethers.formatUnits(maxFeePerGas ?? 0, "gwei") +
-                    ", maxPriorityFeePerGas: " +
-                    ethers.formatUnits(maxPriorityFeePerGas ?? 0, "gwei") +
-                    ")",
-            );
-        }
-        if (gasPrice < gasPriceFromSigner) {
-            throw new Error(
-                "Calculated gas price is less than the gas price from the signer. The transaction will fail. Aborting...",
+                    (txType === 2
+                        ? " (EIP-1559, base fee = " +
+                          ethers.formatUnits(maxFeePerGas - maxPriorityFeePerGas, "gwei") +
+                          ", priority fee = " +
+                          ethers.formatUnits(maxPriorityFeePerGas, "gwei") +
+                          ")"
+                        : ""),
             );
         }
 

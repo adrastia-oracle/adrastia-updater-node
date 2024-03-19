@@ -25,6 +25,10 @@ export type TxConfig = {
     transactionTimeout?: number; // In milliseconds
     maxGasPrice?: bigint; // In wei
     txType?: number;
+    eip1559?: {
+        percentile?: number;
+        historicalBlocks?: number;
+    };
 };
 
 export type TokenConfig = {
