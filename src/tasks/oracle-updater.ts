@@ -1954,6 +1954,16 @@ function extractTxConfig(txConfigList: List<TxConfig>): TxConfig {
         if (result.txType === undefined && txConfig.txType !== undefined) {
             result.txType = txConfig.txType;
         }
+
+        // Extract eip1559 historicalBlocks
+        if (result.eip1559?.historicalBlocks === undefined && txConfig.eip1559?.historicalBlocks !== undefined) {
+            result.eip1559 = { ...(result.eip1559 ?? {}), historicalBlocks: txConfig.eip1559.historicalBlocks };
+        }
+
+        // Extract eip1559 percentile
+        if (result.eip1559?.percentile === undefined && txConfig.eip1559?.percentile !== undefined) {
+            result.eip1559 = { ...(result.eip1559 ?? {}), percentile: txConfig.eip1559.percentile };
+        }
     }
 
     return result;
